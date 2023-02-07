@@ -1,7 +1,7 @@
 ---
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 This is a report of a mini-project for visualizing wikipedia conversations on summer 2022. The data was gathered by Christine De Kock and Andreas Vlachos. The code was written by me ([Zahra Arjmandi Lari](mailto:z.arjmandi@gmail.com)). Part of the credit for the ideas on "how to visualize" goes back to [Tom Stafford](https://tomstafford.sites.sheffield.ac.uk/).
 
@@ -28,7 +28,7 @@ In the end, we had the idea of dividing transitions such that each label has the
 Import libraries. Numpy for handling matrices and json for handling the raw data file (opening and reading .json format). Pyvis and networkx are the two libraries for visualizing graphs. I have used IPython to help in displaying the graphs (.html format) inside this notebook.
 ```{r}
 library(reticulate)
-py_install("pyvis")
+# py_install("pyvis")
 ```
 ```{python}
 #import needed libraries
@@ -43,7 +43,7 @@ from collections import Counter
 #using pip in case the code is directly run under python
 # !pip install pyvis
 from pyvis.network import Network
-
+# import pyvis
 # # to be able to display output graph which is in html format
 # from IPython.core.display import display, HTML
 ```
@@ -684,8 +684,10 @@ esc_net_max.toggle_physics(False)
 
 
 #create and save the graphs in current directory
-esc_net_max.save_graph("nonesc_fixed_max.html")
+esc_net_max.save_graph("esc_fixed_max.html")
+non_esc_net_max.save_graph("nonesc_fixed_max.html")
 # non_esc_net_max.show("nonesc_fixed_max.html")
 # esc_net_max.show("esc_fixed_max.html")
 
 ```
+
