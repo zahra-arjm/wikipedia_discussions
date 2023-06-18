@@ -1,6 +1,7 @@
 ---
 output:
   html_document: default
+  pdf_document: default
 ---
 This is a report of a mini-project for visualizing wikipedia conversations on summer 2022. The data was gathered by Christine De Kock and Andreas Vlachos. The code was written by me ([Zahra Arjmandi Lari](mailto:z.arjmandi@gmail.com)). Part of the credit for the ideas on "how to visualize" goes back to [Tom Stafford](https://tomstafford.sites.sheffield.ac.uk/).
 
@@ -26,8 +27,12 @@ In the end, we had the idea of dividing transitions such that each label has the
 Import libraries. First, import "reticulate" for running python codes. Then installing "pyvis" in this python version. "Pyvis" is the library for visualizing graphs. Then, in python import "numpy" for handling matrices and "json" for handling the raw data file (opening and reading .json format). 
 ```{r results='hide'}
 library(reticulate)
+<<<<<<< HEAD
 library(R3port)
 py_install("pyvis")
+=======
+# py_install("pyvis")
+>>>>>>> 0bd99448079206d7b9c40798ac5ae2c44ffec5ec
 ```
 ```{python}
 #import needed libraries
@@ -36,8 +41,13 @@ import json
 
 from collections import Counter
 from pyvis.network import Network
+<<<<<<< HEAD
 
 ## to be able to display output graph which is in html format in a colab notebook
+=======
+# import pyvis
+# # to be able to display output graph which is in html format
+>>>>>>> 0bd99448079206d7b9c40798ac5ae2c44ffec5ec
 # from IPython.core.display import display, HTML
 ```
 ## **Part 2: Data cleaning and wrangling**
@@ -1171,6 +1181,7 @@ esc_net_all.toggle_physics(False)
 
 
 #create and save the graphs in current directory
+<<<<<<< HEAD
 non_esc_net_all.save_graph("nonesc_fixed_all.html")
 esc_net_all.save_graph("esc_fixed_all.html")
 ```
@@ -1183,3 +1194,12 @@ One sample to show how the graph look like in html format; you can zoom on the g
 xfun::file_string('esc_fixed_all.html')
 ```
 ````
+=======
+esc_net_max.save_graph("esc_fixed_max.html")
+non_esc_net_max.save_graph("nonesc_fixed_max.html")
+# non_esc_net_max.show("nonesc_fixed_max.html")
+# esc_net_max.show("esc_fixed_max.html")
+
+```
+
+>>>>>>> 0bd99448079206d7b9c40798ac5ae2c44ffec5ec
