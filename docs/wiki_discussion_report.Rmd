@@ -27,12 +27,8 @@ In the end, we had the idea of dividing transitions such that each label has the
 Import libraries. First, import "reticulate" for running python codes. Then installing "pyvis" in this python version. "Pyvis" is the library for visualizing graphs. Then, in python import "numpy" for handling matrices and "json" for handling the raw data file (opening and reading .json format). 
 ```{r results='hide'}
 library(reticulate)
-<<<<<<< HEAD
 library(R3port)
 py_install("pyvis")
-=======
-# py_install("pyvis")
->>>>>>> 0bd99448079206d7b9c40798ac5ae2c44ffec5ec
 ```
 ```{python}
 #import needed libraries
@@ -41,14 +37,6 @@ import json
 
 from collections import Counter
 from pyvis.network import Network
-<<<<<<< HEAD
-
-## to be able to display output graph which is in html format in a colab notebook
-=======
-# import pyvis
-# # to be able to display output graph which is in html format
->>>>>>> 0bd99448079206d7b9c40798ac5ae2c44ffec5ec
-# from IPython.core.display import display, HTML
 ```
 ## **Part 2: Data cleaning and wrangling**
 
@@ -65,9 +53,9 @@ raw_data[0:5]
 ```
 The raw_data is a list containing multiple dictionaries. Each dictionary has two keys: 
 
-*   escalation: which shows the type of coversation (either escalated with value 1 or non-escalated with value 0)
+*   escalation: which shows the type of conversation (either escalated with value 1 or non-escalated with value 0)
 *   utt_labels: which is shows each utterance's label. Its value is a list of lists containing each utterance label(s). These lists are in the same order that happend in the conversation.
-To get an idea of the labels' frequency, I built a dictionary contining all the labels and their frequnecies:
+To get an idea of the labels' frequency, I built a dictionary containing all the labels and their frequencies:
 ```{python}
 #count frequency of each label in a dictionary
 super_dict_labels = {}
@@ -834,9 +822,6 @@ for node, _ in sorted_non_DH_min:
                color=node_color)
              
   idx_node += 1
-  
-
-
 
 # add edges from DHs to both
 idx_source = 0
@@ -1177,11 +1162,7 @@ for source, _ in sorted_non_DH_all:
 non_esc_net_all.toggle_physics(False)
 esc_net_all.toggle_physics(False)
 
-
-
-
 #create and save the graphs in current directory
-<<<<<<< HEAD
 non_esc_net_all.save_graph("nonesc_fixed_all.html")
 esc_net_all.save_graph("esc_fixed_all.html")
 ```
@@ -1194,12 +1175,3 @@ One sample to show how the graph look like in html format; you can zoom on the g
 xfun::file_string('esc_fixed_all.html')
 ```
 ````
-=======
-esc_net_max.save_graph("esc_fixed_max.html")
-non_esc_net_max.save_graph("nonesc_fixed_max.html")
-# non_esc_net_max.show("nonesc_fixed_max.html")
-# esc_net_max.show("esc_fixed_max.html")
-
-```
-
->>>>>>> 0bd99448079206d7b9c40798ac5ae2c44ffec5ec
