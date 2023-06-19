@@ -1,21 +1,29 @@
 ---
+title: Conversation Flow in Wikipedia Discussion Pages
 output:
-  html_document: default
-  pdf_document: default
+  bookdown::html_document2: default
+  bookdown::pdf_document2: default
+bibliography: main.bib
+link_citations: true
+csl: apa.csl
 ---
 This is a report of a mini-project for visualizing wikipedia conversations on summer 2022. The data was gathered by Christine De Kock and Andreas Vlachos. The code was written by me ([Zahra Arjmandi Lari](mailto:z.arjmandi@gmail.com)). Part of the credit for the ideas on "how to visualize" goes back to [Tom Stafford](https://tomstafford.sites.sheffield.ac.uk/).
 
-## The Story In Short
+# The Story In Short
 
-Wikipedia pages have a [talk/discussion page](https://en.wikipedia.org/wiki/Help:Talk_pages) where editors discuss how to improve a page. In some occasions, the editors have different opinions on some topics and the talk page will be tagged as "dispute" by editors. In some cases the editors resolve the disputes on their own; in other cases the disputes are "escalated" and needs mediation.
-Wikipedia suggests its users to use hierarchy of disagreement, proposed by Paul Graham [1](#refs) to resolve disputes constructively. Christine De Kock and Andreas Vlachos have annotated ~200 conversation from wikipedia talk pages categorized as "dispute". They have labeled each part of the conversation (utterance) accordingly which consist of ~4000 utterance [2](#refs). Part of the labels are on the basis of Graham's proposed hierarchy of disagreement [1](#refs) which addresses the "rebuttal tactics". Graham suggest 7 levels for disagreements 
+Each Wikipedia page have a [talk/discussion page](https://en.wikipedia.org/wiki/Help:Talk_pages) where editors discuss how to improve a page. In some occasions, the editors have different opinions on some topics and the talk page will be tagged as "dispute" by the editors. In some cases the editors resolve the disputes on their own; in other cases the disputes are "escalated" and needs mediation from Wikipedia staff.
+Wikipedia suggests its users to use hierarchy of disagreement, proposed by @graham2008 (#refs) to resolve disputes constructively. Christine De Kock and Andreas Vlachos have annotated ~200 conversation from Wikipedia talk pages categorized as "dispute". They have labeled each part of the conversation (utterance) accordingly which consist of ~4000 utterance [@Christine2022](#refs). Part of the labels are on the basis of Graham's proposed hierarchy of disagreement [see Figure \@ref(fig:graham_hierarchy)] which addresses the "rebuttal tactics". Graham suggest 7 levels for disagreements 
 which (starts from name-calling at the bottom or DH0 to refuting the central point or DH7). The other part of labels are called "resolution tactics" and attempts to promote 
 understanding and consensus. See table 1 [ADD TABLE]. For more information see [2](#refs).
 
-### Our Question
+```{r graham_hierarchy, fig.align = 'center', out.width = "50%", fig.cap = "Graham's hierarchy of disagreement"}
+knitr::include_graphics("Graham_Hierarchy_of_Disagreement.png")
+```
+
+## Our Question
 What we wanted to know was "what is the difference in how conversation flows in "escalated" versus "non-escalated" discussions?"
 
-### What We Did In Summary
+## What We Did In Summary
 
 I divided data into escalated and non-escalated conversations. For each utterance, picked one or multiple label(s). Then, built the transition matrix and visualized the graphs; each label served as a node and the transition probability between each two nodes, became the strength of the edges.
 First, we wanted to know whether escalated conversation lack higher order DHs or not. I drew the graph such that in case of multi-label utterance, the higher label is shown (for more information see [1](#refs)). Our graphs showed that escalated discussion do have at least the same amount of higher order DHs.[reference to related cells]
@@ -38,7 +46,7 @@ import json
 from collections import Counter
 from pyvis.network import Network
 ```
-## **Part 2: Data cleaning and wrangling**
+# **Part 2: Data cleaning and wrangling**
 
 Next, open the data file and load it. Let's have a look at how the data format:
 ```{python}
@@ -503,7 +511,7 @@ if trans_flt_max.shape[0] != len(labels_long_flt_max): #'Other' label transition
   labels_long_flt_max.append('Other')
   labels_short_flt_max.append('Other')
 ```
-## **Part 3: graph for filtered transitions and fixed nodes**
+# **Part 3: graph for filtered transitions and fixed nodes**
 For the visualizing nodes, we wanted to divide the graph into two parts. A part for DH labels which are ordered based on their level. The other part would be all other labels. In the next cell, I separated the labels and also sorted them alphabetically.
 ```{python}
 #sort the labels alphabetically and get old indices for both DH and non-DHs:
@@ -1166,6 +1174,9 @@ esc_net_all.toggle_physics(False)
 non_esc_net_all.save_graph("nonesc_fixed_all.html")
 esc_net_all.save_graph("esc_fixed_all.html")
 ```
+```{r fig.align = 'center', out.width = "50%", fig.show='hold', fig.cap = "Max escalated"}
+knitr::include_graphics(c("esc_fixed_all.png", "nonesc_fixed_all.png"))
+```
 Comparing the left and right parts of the graphs in "escalated" and "non-escalated" conversation, using "all" labels shows less transitions between the left part (rebuttal tactics) and right part (resolutional tactics) in the "escalated" graph. This means that although authors in escalated conversations used almost the same level of reasoning to discuss their points of view, but it did not encourage using more resolutional arguments such as "Asking questions", "providing a clarification", or "suggesting a compromise".
 
 
@@ -1175,3 +1186,9 @@ One sample to show how the graph look like in html format; you can zoom on the g
 xfun::file_string('esc_fixed_all.html')
 ```
 ````
+# Acknowledgments
+This work has been supported by EPSRC grant EP/T024666/1: “Opening Up Minds” and the University of Sheffield and the University of Cambridge.
+
+# References
+
+<div id="refs"></div>
