@@ -54,7 +54,7 @@ raw_data[0:5]
 The raw_data is a list containing multiple dictionaries. Each dictionary has two keys: 
 
 *   escalation: which shows the type of conversation (either escalated with value 1 or non-escalated with value 0)
-*   utt_labels: which is shows each utterance's label. Its value is a list of lists containing each utterance label(s). These lists are in the same order that happend in the conversation.
+*   utt_labels: which is shows each utterance's label. Its value is a list of lists containing each utterance label(s). These lists are in the same order that happens in the conversation.
 To get an idea of the labels' frequency, I built a dictionary containing all the labels and their frequencies:
 ```{python}
 #count frequency of each label in a dictionary
