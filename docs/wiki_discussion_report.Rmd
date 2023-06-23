@@ -2,7 +2,6 @@
 title: Conversation Flow in Wikipedia Discussion Pages
 output:
   bookdown::html_document2: default
-  bookdown::pdf_document2: default
 bibliography: main.bib
 link_citations: true
 csl: apa.csl
@@ -12,16 +11,22 @@ This is a report of a mini-project for visualizing wikipedia conversations on su
 # The Story In Short
 
 Each Wikipedia page have a [talk/discussion page](https://en.wikipedia.org/wiki/Help:Talk_pages) where editors discuss how to improve a page. In some occasions, the editors have different opinions on some topics and the talk page will be tagged as "dispute" by the editors. In some cases the editors resolve the disputes on their own; in other cases the disputes are "escalated" and needs mediation from Wikipedia staff.
-Wikipedia suggests its users to use hierarchy of disagreement, proposed by @graham2008 (#refs) to resolve disputes constructively. Christine De Kock and Andreas Vlachos have annotated ~200 conversation from Wikipedia talk pages categorized as "dispute". They have labeled each part of the conversation (utterance) accordingly which consist of ~4000 utterance [@Christine2022](#refs). Part of the labels are on the basis of Graham's proposed hierarchy of disagreement [see Figure \@ref(fig:graham_hierarchy)] which addresses the "rebuttal tactics". Graham suggest 7 levels for disagreements 
-which (starts from name-calling at the bottom or DH0 to refuting the central point or DH7). The other part of labels are called "resolution tactics" and attempts to promote 
-understanding and consensus. See table 1 [ADD TABLE]. For more information see [2](#refs).
+Wikipedia suggests its users to use hierarchy of disagreement, proposed by @graham2008 to resolve disputes constructively. Christine De Kock and Andreas Vlachos have annotated ~200 conversation from Wikipedia talk pages categorized as "dispute". They have labeled each part of the conversation (utterance) accordingly which consist of ~4000 utterance [@Christine2022]. Part of the labels are on the basis of Graham's proposed hierarchy of disagreement [see Figure \@ref(fig:grahamhierarchy)] which addresses the "rebuttal tactics". Graham suggest 7 levels for disagreements starting from name-calling at the bottom (DH0) to refuting the central point (DH7). The other part of labels are called "resolution tactics" and attempts to promote 
+understanding and consensus. See Table \@ref(tab:labels). For more information see @Christine2022.
 
-```{r graham_hierarchy, fig.align = 'center', out.width = "50%", fig.cap = "Graham's hierarchy of disagreement"}
+```{r grahamhierarchy, fig.align = 'center', out.width = "50%", fig.cap = "Graham's hierarchy of disagreement", echo=FALSE}
 knitr::include_graphics("Graham_Hierarchy_of_Disagreement.png")
 ```
 
+```{r labels, echo=FALSE}
+# a work around for using an image instead of a table but using table caption!
+temp.df <- data.frame(image="![](utt_labels.png)")
+temp.mat <- as.matrix(temp.df)
+colnames(temp.mat) <- NULL
+knitr::kable(temp.mat, caption="Labels used for annotationg Wikipedia Discussion Pages")
+```
 ## Our Question
-What we wanted to know was "what is the difference in how conversation flows in "escalated" versus "non-escalated" discussions?"
+What we wanted to know was "what is the difference in how conversation flows in "escalated" versus "non-escalated" discussions?" 
 
 ## What We Did In Summary
 
