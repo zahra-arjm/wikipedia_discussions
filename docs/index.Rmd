@@ -757,7 +757,7 @@ esc_net_max.save_graph("esc_fixed_max.html")
 non_esc_net_max.save_graph("nonesc_fixed_max.html")
 ```
 Since the outputs are in html and I can only show one html file in this document, I have transformed them into png files.
-```{r fig.align = 'center', out.width = "50%", fig.show='hold', fig.cap = "Max method; the left graph is the escalated conversations and the right one is the graph for non-escalated conversations."}
+```{r fig.align = 'center', out.width = "50%", fig.show='hold', fig.cap = "Max method; "escalated" graph on the left, "non-escalated" graph on the right"}
 knitr::include_graphics(c("esc_fixed_max.png", "nonesc_fixed_max.png"))
 ```
 Notice how both “escalated” and “non-escalated” conversations use many high-order arguments. Besides, "non-escalated" discussion are more associated with transitions between arguments and coordinating moves.
@@ -967,7 +967,7 @@ non_esc_net_min.save_graph("nonesc_fixed_min.html")
 esc_net_min.save_graph("esc_fixed_min.html")
 ```
 Again, I transformed the html output into png format.
-```{r fig.align = 'center', out.width = "50%", fig.show='hold', fig.cap = "Min method; the left graph is the escalated conversations and the right one is the graph for non-escalated conversations."}
+```{r fig.align = 'center', out.width = "50%", fig.show='hold', fig.cap = "Min method; "escalated" graph on the left, "non-escalated" graph on the right"}
 knitr::include_graphics(c("esc_fixed_min.png", "nonesc_fixed_min.png"))
 ```
 It seems like lower order DHs were actually used more in "escalated" conversations. This means that although higher order DHs were used in "escalated" as much as "non-escalated" conversation, but these higher DHs were accompanied by lower DHs (especially DH1); this could be part of the reason why less coordination was seen.
@@ -1179,7 +1179,7 @@ esc_net_all.toggle_physics(False)
 non_esc_net_all.save_graph("nonesc_fixed_all.html")
 esc_net_all.save_graph("esc_fixed_all.html")
 ```
-```{r fig.align = 'center', out.width = "50%", fig.show='hold', fig.cap = "All  method; the left graph is the escalated conversations and the right one is the graph for non-escalated conversations."}
+```{r fig.align = 'center', out.width = "50%", fig.show='hold', fig.cap = "All method; "escalated" graph on the left, "non-escalated" graph on the right"}
 knitr::include_graphics(c("esc_fixed_all.png", "nonesc_fixed_all.png"))
 ```
 Comparing the left and right parts of the graphs in "escalated" and "non-escalated" conversation, using "all" labels shows less transitions between the left part (rebuttal tactics) and right part (resolutional tactics) in the "escalated" graph. This means that although authors in escalated conversations used almost the same level of reasoning to discuss their points of view, but it did not encourage using more resolutional arguments such as "Asking questions", "providing a clarification", or "suggesting a compromise".
