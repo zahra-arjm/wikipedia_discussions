@@ -1,18 +1,37 @@
 ---
 title: Conversation Flow in Wikipedia Discussion Pages
 output:
-  bookdown::html_document2: default
+  bookdown::html_document2:
+    config:
+      fontsettings:
+        size: 5
+    # css: style.css
 bibliography: main.bib
 link_citations: true
 csl: apa.csl
+editor_options: 
+  markdown: 
+    wrap: sentence
 ---
-This is a report of a mini-project for visualizing wikipedia conversations on summer 2022. The data was gathered by Christine De Kock and Andreas Vlachos. The code was written by me ([Zahra Arjmandi Lari](mailto:z.arjmandi@gmail.com)). Part of the credit for the ideas on "how to visualize" goes back to [Tom Stafford](https://tomstafford.sites.sheffield.ac.uk/).
+
+This is a report of a mini-project for visualizing wikipedia conversations on summer 2022.
+The data was gathered by Christine De Kock and Andreas Vlachos.
+The code was written by me ([Zahra Arjmandi Lari](mailto:z.arjmandi@gmail.com)).
+Part of the credit for the ideas on "how to visualize" goes back to [Tom Stafford](https://tomstafford.sites.sheffield.ac.uk/).
 
 # The Story In Short
 
-Each Wikipedia page have a [talk/discussion page](https://en.wikipedia.org/wiki/Help:Talk_pages) where editors discuss how to improve a page. In some occasions, the editors have different opinions on some topics and the talk page will be tagged as "dispute" by the editors. In some cases the editors resolve the disputes on their own; in other cases the disputes are "escalated" and needs mediation from Wikipedia staff.
-Wikipedia suggests its users to use hierarchy of disagreement, proposed by @graham2008 to resolve disputes constructively. Christine De Kock and Andreas Vlachos have annotated ~200 conversation from Wikipedia talk pages categorized as "dispute". They have labeled each part of the conversation (utterance) accordingly which consist of ~4000 utterance [@Christine2022]. Part of the labels are on the basis of Graham's proposed hierarchy of disagreement [see Figure \@ref(fig:grahamhierarchy)] which addresses the "rebuttal tactics". Graham suggest 7 levels for disagreements starting from name-calling at the bottom (DH0) to refuting the central point (DH7). The other part of labels are called "resolution tactics" and attempts to promote 
-understanding and consensus. See Table \@ref(tab:labels). For more information see @Christine2022.
+Each Wikipedia page have a [talk/discussion page](https://en.wikipedia.org/wiki/Help:Talk_pages) where editors discuss how to improve a page.
+In some occasions, the editors have different opinions on some topics and the talk page will be tagged as "dispute" by the editors.
+In some cases the editors resolve the disputes on their own; in other cases the disputes are "escalated" and needs mediation from Wikipedia staff.
+Wikipedia suggests its users to use hierarchy of disagreement, proposed by @graham2008 to resolve disputes constructively.
+Christine De Kock and Andreas Vlachos have annotated \~200 conversation from Wikipedia talk pages categorized as "dispute".
+They have labeled each part of the conversation (utterance) accordingly which consist of \~4000 utterance [@Christine2022].
+Part of the labels are on the basis of Graham's proposed hierarchy of disagreement [see Figure \@ref(fig:grahamhierarchy)] which addresses the "rebuttal tactics".
+Graham suggest 7 levels for disagreements starting from name-calling at the bottom (DH0) to refuting the central point (DH7).
+The other part of labels are called "resolution tactics" and attempts to promote understanding and consensus.
+See Table \@ref(tab:labels).
+For more information see @Christine2022.
 
 ```{r grahamhierarchy, fig.align = 'center', out.width = "50%", fig.cap = "Graham's hierarchy of disagreement", echo=FALSE}
 knitr::include_graphics("Graham_Hierarchy_of_Disagreement.png")
@@ -25,24 +44,39 @@ temp.mat <- as.matrix(temp.df)
 colnames(temp.mat) <- NULL
 knitr::kable(temp.mat, caption="Labels used for annotationg Wikipedia Discussion Pages")
 ```
+
 ## Our Question
-What we wanted to know was "what is the difference in how conversation flows in "escalated" versus "non-escalated" discussions?" 
+
+What we wanted to know was "what is the difference in how conversation flows in"escalated" versus "non-escalated" discussions?"
 
 ## What We Did In Summary
 
-I divided data into escalated and non-escalated conversations. For each utterance, picked one or multiple label(s). Then, built the transition matrix and visualized the graphs; each label served as a node and the transition probability between each two nodes, became the strength of the edges.
-First, we wanted to know whether escalated conversation lack higher order DHs or not. I drew the graph such that in case of multi-label utterance, the higher label is shown (for more information see [1](#refs)). Our graphs showed that escalated discussion do have at least the same amount of higher order DHs.[reference to related cells]
-Then we thought that maybe the higher order DHs are accompanied with lower order DHs in escalated conversations. Potentially, this could neutralize the effect of using higher order resolution techniques. [reference to related cells] Based on the graphs, it seems like in 'escalated' conversations lower order DHs were used more!
-In the end, we had the idea of dividing transitions such that each label has the chance to be part of the graph. It shows that less resolutional tactics were used in 'escalated' conversations, compared to 'non-escalated' ones. It also shows that 'rebuttal' tactics did not encourage 'resolutional' tactics (such as 'Asking questions' "providing a clarification", or "suggesting a compromise"
-) in 'escalated' conversations versus 'non-escalated' ones.
+I divided data into escalated and non-escalated conversations.
+For each utterance, picked one or multiple label(s).
+Then, built the transition matrix and visualized the graphs; each label served as a node and the transition probability between each two nodes, became the strength of the edges.
+First, we wanted to know whether escalated conversation lack higher order DHs or not.
+I drew the graph such that in case of multi-label utterance, the higher label is shown (for more information see [1](#refs)).
+Our graphs showed that escalated discussion do have at least the same amount of higher order DHs [see Figure \@ref(fig:maxMethod)]. Then we thought that maybe the higher order DHs are accompanied with lower order DHs in escalated conversations.
+Potentially, this could neutralize the effect of using higher order resolution techniques [see Figure \@ref(fig:minMethod)]. Based on the graphs, it seems like in 'escalated' conversations lower order DHs were used more!
+In the end, we had the idea of dividing transitions such that each label has the chance to be part of the graph [see Figure \@ref(fig:allMethod)].
+It shows that less resolutional tactics were used in 'escalated' conversations, compared to 'non-escalated' ones.
+It also shows that 'rebuttal' tactics did not encourage 'resolutional' tactics (such as 'Asking questions' "providing a clarification", or "suggesting a compromise" ) in 'escalated' conversations versus 'non-escalated' ones.
+In the next sections, you will find the journey for making those graphs. If you wish to skip this part, you can [jump to the Result's section][Results] for the results and more discussion.
 
-##The Code
-Import libraries. First, import "reticulate" for running python codes. Then installing "pyvis" in this python version. "Pyvis" is the library for visualizing graphs. Then, in python import "numpy" for handling matrices and "json" for handling the raw data file (opening and reading .json format). 
+# The Code
+
+## Import libraries.
+First, import "reticulate" for running python codes.
+Then installing "pyvis" in this python version.
+"Pyvis" is the library for visualizing graphs.
+Then, in python import "numpy" for handling matrices and "json" for handling the raw data file (opening and reading .json format).
+
 ```{r results='hide'}
 library(reticulate)
 library(R3port)
 py_install("pyvis")
 ```
+
 ```{python}
 #import needed libraries
 import numpy as np
@@ -51,9 +85,12 @@ import json
 from collections import Counter
 from pyvis.network import Network
 ```
-# **Part 2: Data cleaning and wrangling**
 
-Next, open the data file and load it. Let's have a look at how the data format:
+## Data cleaning and wrangling
+
+Next, open the data file and load it.
+Let's have a look at how the data is formatted:
+
 ```{python}
 # Opening JSON file
 raw_data = open('frequency_data.json')
@@ -64,11 +101,13 @@ raw_data = json.load(raw_data)
 
 raw_data[0:5]
 ```
-The raw_data is a list containing multiple dictionaries. Each dictionary has two keys: 
 
-*   escalation: which shows the type of conversation (either escalated with value 1 or non-escalated with value 0)
-*   utt_labels: which is shows each utterance's label. Its value is a list of lists containing each utterance label(s). These lists are in the same order that happens in the conversation.
-To get an idea of the labels' frequency, I built a dictionary containing all the labels and their frequencies:
+The raw_data is a list containing multiple dictionaries.
+Each dictionary has two keys:
+
+-   escalation: which shows the type of conversation (either escalated with value 1 or non-escalated with value 0)
+-   utt_labels: which is shows each utterance's label. Its value is a list of lists containing each utterance label(s). These lists are in the same order that happens in the conversation. To get an idea of the labels' frequency, I built a dictionary containing all the labels and their frequencies:
+
 ```{python}
 #count frequency of each label in a dictionary
 super_dict_labels = {}
@@ -82,7 +121,11 @@ for i in range(len(raw_data)):
         super_dict_labels[k] = v
 super_dict_labels
 ```
-There are multiple labels. All DH labels are in format of DH[a digit] except for 'DH-1: Bailing out'. Let's change that:
+
+There are multiple labels.
+All DH labels are in format of DH[a digit] except for 'DH-1: Bailing out'.
+Let's change that:
+
 ```{python}
 # change label "DH-1: Bailing out" to formal format "DH1: Bailing out"
 for conversation in raw_data:
@@ -108,8 +151,10 @@ for i in range(len(raw_data)):
         super_dict_labels[k] = v
 super_dict_labels
 ```
+
 Explore the stats a bit:
-```{python}
+
+```{python collapse = TRUE}
 #count the frequency of multi-label utterances
 # keep length of the conversations in two separate lists
 # number of utterances
@@ -148,22 +193,29 @@ print(F"Median length of utterances in non-escalated conversations: {np.around(n
 print(F"Minimum number of utterances in a conversation: {(np.array(len_esc + len_non_esc)).min()}")
 print(F"Maximum number of utterances in a conversation: {(np.array(len_esc + len_non_esc)).max()}")
 ```
-~25% of the utterances are multi-labeled. To build a transition matrix, I needed to simplify the multi-label utterances. The 'pick_label' function gets the list of labels and the method, and outputs the final label(s).
+
+\~25% of the utterances are multi-labeled.
+To build a transition matrix, I needed to simplify the multi-label utterances.
+The 'pick_label' function gets the list of labels and the method, and outputs the final label(s).
 I needed to either reduce multi-labels to one label or distribute the transition from i to i+1 th utterance between all the labels; such that each pair of label is involved equally.
 the function 'pick_label' accepts three methods:
 
+-   all: the output will be the same as the input.
+    It gives back all the labels
 
-*   all: the output will be the same as the input. It gives back all the labels
-*   max: if the labels contain a DH label, the output will be the highest DH. Otherwise, the output is the label with the highest frequency
+-   max: if the labels contain a DH label, the output will be the highest DH.
+    Otherwise, the output is the label with the highest frequency
 
-*   min: if the labels contain a DH label, the output will be the lowest DH. Otherwise, the output is the label with the highest frequency
+-   min: if the labels contain a DH label, the output will be the lowest DH.
+    Otherwise, the output is the label with the highest frequency
 
 Weight of the edge between two nodes in case of using 'all' method:
 
+```{=tex}
 \begin{align}
 \frac{1}{\text{(no of labels in ith utterance)} \text{(no labels in (i+1)th utterance)}}
 \end{align}
-
+```
 ```{python}
 # a function to pick one of the labels if there are multiple labels available for a part of an utter
 def pick_label(list_of_labels, method):
@@ -209,9 +261,15 @@ def pick_label(list_of_labels, method):
   return final_label
 
 ```
-Now, build the transition matrix. The matrix contains all the labels plus a label called 'end'. The last list in each 'utter_label' is followed by 'end' (or end of the conversation).
+
+Now, build the transition matrix.
+The matrix contains all the labels plus a label called 'end'.
+The last list in each 'utter_label' is followed by 'end' (or end of the conversation).
 Here, we can change the method of extracting labels in 'pick_label' function by changing 'method' variable.
-The 'transition_all' variable is a 3-dimensional array. On the first layer, we have the transitions between every two labels, for the non-escalated conversations (or label 0 on escalation), and on the second layer, we have the same thing for escalated conversations. I created three versions of transition matrix to try differnt methods of picking labels on the data.
+The 'transition_all' variable is a 3-dimensional array.
+On the first layer, we have the transitions between every two labels, for the non-escalated conversations (or label 0 on escalation), and on the second layer, we have the same thing for escalated conversations.
+I created three versions of transition matrix to try differnt methods of picking labels on the data.
+
 ```{python}
 # create 3 np arrays to keep transitions for esc and non-esc conversations
 # 24 unique labels + 1 row/col for "end"
@@ -265,7 +323,10 @@ for conversation in raw_data:
               transition_max[from_idx,to_idx,int(conversation['escalation'])] += 1/(len_from*len_to)
             
 ```
-View long labels and then shorten them. Later, I will use short labels for node identification in the graph.
+
+View long labels and then shorten them.
+Later, I will use short labels for node identification in the graph.
+
 ```{python}
 # view long labels
 print(labels_long)
@@ -299,8 +360,11 @@ labels_short = ['Coords',
  'DH2:off',
  'end']
 ```
-Multiple categories of the same DH are among labels. Since we need to simplify the most, I merged them!
+
+Multiple categories of the same DH are among labels.
+Since we need to simplify the most, I merged them!
 Then, I created another filtered list of the labels and updated the 'trasiton_all' matrix accordingly.
+
 ```{python}
 # sum instances of similar DHs
 rep_DHs = ['DH1', 'DH2', 'DH4', 'DH5', 'DH6']
@@ -352,12 +416,20 @@ transition_min = np.delete(transition_min, to_be_rmvd_idx, axis = 1)
 transition_max = np.delete(transition_max, to_be_rmvd_idx, axis = 0)
 transition_max = np.delete(transition_max, to_be_rmvd_idx, axis = 1)
 ```
+
 Let's see the total number of transitions in each layer (escalated and non-escalated conversations)
+
 ```{python}
 np.sum(np.sum(transition_max, axis=0), axis=0)
 ```
-We have ~2000 transition in each layer. To simplify, I merged labels with low inward transitions (because label 'end' does not have any outward transition). I summed over each column over both layers.
-After filtering, I gathered all the filtered labels into label 'Other'. Since there was an 'Other' label in the given labels, first, I checked if 'Other' label has survived filtering! To make the code simpler I have used three different cells for each method.
+
+We have \~2000 transition in each layer.
+To simplify, I merged labels with low inward transitions (because label 'end' does not have any outward transition).
+I summed over each column over both layers.
+After filtering, I gathered all the filtered labels into label 'Other'.
+Since there was an 'Other' label in the given labels, first, I checked if 'Other' label has survived filtering!
+To make the code simpler I have used three different cells for each method.
+
 ```{python}
 #filter the columns with less than a threshold of the inward transitions
 threshold_in = 40 # overall 4000 transitions. 40 is one percent
@@ -464,7 +536,6 @@ if trans_flt_min.shape[0] != len(labels_long_flt_min): #'Other' label transition
   labels_short_flt_min.append('Other')
 ```
 
-
 ```{python}
 #method 'max'
 
@@ -516,8 +587,14 @@ if trans_flt_max.shape[0] != len(labels_long_flt_max): #'Other' label transition
   labels_long_flt_max.append('Other')
   labels_short_flt_max.append('Other')
 ```
-# **Part 3: graph for filtered transitions and fixed nodes**
-For the visualizing nodes, we wanted to divide the graph into two parts. A part for DH labels which are ordered based on their level. The other part would be all other labels. In the next cell, I separated the labels and also sorted them alphabetically.
+
+## graph for filtered transitions and fixed nodes
+
+For the visualizing nodes, we wanted to divide the graph into two parts.
+A part for DH labels which are ordered based on their level.
+The other part would be all other labels.
+In the next cell, I separated the labels and also sorted them alphabetically.
+
 ```{python}
 #sort the labels alphabetically and get old indices for both DH and non-DHs:
 #method 'all'
@@ -545,13 +622,19 @@ sorted_non_DH_max = sorted((name, index) for index, name in
                          enumerate([item for (item, cond) in zip(labels_short_flt_max, mask) if not cond]))
 
 ```
-In the end, I built six (three, number of methods by two, escalated and non-escalated) graphs. 
-The size of each node is proportional to the number of inward transitions. The width of each edge is proportional to the number of transition between the two nodes (except for the transitions to node 'end').
-I added a variable 'threshod' to omit the eadges with less number of transition. If any edge transition is lower than the 'threshod' the edge won't be shown in the graph.
-I also have removed the transitions from an edge to itself. It helped declutter the graph substantially. Besides, it meant that the conversation remained in a state for a longer time (which we did not care about).
+
+In the end, I built six (three, number of methods by two, escalated and non-escalated) graphs.
+The size of each node is proportional to the number of inward transitions.
+The width of each edge is proportional to the number of transition between the two nodes (except for the transitions to node 'end').
+I added a variable 'threshod' to omit the eadges with less number of transition.
+If any edge transition is lower than the 'threshod' the edge won't be shown in the graph.
+I also have removed the transitions from an edge to itself.
+It helped declutter the graph substantially.
+Besides, it meant that the conversation remained in a state for a longer time (which we did not care about).
 
 The graphs will be save as 'html' files in the current directory (after running next cell, open 'files' on the left menu bar; you should see two files with names "nonesc_fixed.html" and "esc_fixed.html"; the files are downloadable).
 First, let's look at the 'max' graphs:
+
 ```{python}
 # create two empty directed Network instance, with certain size in pixels
 non_esc_net_max = Network(height='900px', width='900px',directed =True)
@@ -756,13 +839,8 @@ esc_net_max.toggle_physics(False)
 esc_net_max.save_graph("esc_fixed_max.html")
 non_esc_net_max.save_graph("nonesc_fixed_max.html")
 ```
-Since the outputs are in html and I can only show one html file in this document, I have transformed them into png files.
-```{r fig.align = 'center', out.width = "50%", fig.show='hold', fig.cap = "Max method; 'escalated' graph on the left, 'non-escalated' graph on the right"}
-knitr::include_graphics(c("esc_fixed_max.png", "nonesc_fixed_max.png"))
-```
-Notice how both “escalated” and “non-escalated” conversations use many high-order arguments. Besides, "non-escalated" discussion are more associated with transitions between arguments and coordinating moves.
 
-Now we built the graph with 'min' method to see if low-order arguments were more present in "escalated" conversations.
+
 
 ```{python}
 # create two empty directed Network instance, with certain size in pixels
@@ -966,13 +1044,9 @@ esc_net_min.toggle_physics(False)
 non_esc_net_min.save_graph("nonesc_fixed_min.html")
 esc_net_min.save_graph("esc_fixed_min.html")
 ```
-Again, I transformed the html output into png format.
-```{r fig.align = 'center', out.width = "50%", fig.show='hold', fig.cap = "Min method; 'escalated' graph on the left, 'non-escalated' graph on the right"}
-knitr::include_graphics(c("esc_fixed_min.png", "nonesc_fixed_min.png"))
-```
-It seems like lower order DHs were actually used more in "escalated" conversations. This means that although higher order DHs were used in "escalated" as much as "non-escalated" conversation, but these higher DHs were accompanied by lower DHs (especially DH1); this could be part of the reason why less coordination was seen.
 
-Given both sets of graphs, we had the idea of giving all the labels equal opportunities to be seen; we built the graphs with "all" method.
+
+
 ```{python}
 # create two empty directed Network instance, with certain size in pixels
 non_esc_net_all = Network(height='900px', width='900px',
@@ -1179,21 +1253,49 @@ esc_net_all.toggle_physics(False)
 non_esc_net_all.save_graph("nonesc_fixed_all.html")
 esc_net_all.save_graph("esc_fixed_all.html")
 ```
-```{r fig.align = 'center', out.width = "50%", fig.show='hold', fig.cap = "All method; 'escalated' graph on the left, 'non-escalated' graph on the right"}
+# Results
+Since the output graphs are in html and I can only show one html file in this document, I have transformed them into png files.
+
+```{r maxMethod, fig.align = 'center', out.width = "50%", fig.show='hold', fig.cap = "Max method; 'escalated' graph on the left, 'non-escalated' graph on the right"}
+knitr::include_graphics(c("esc_fixed_max.png", "nonesc_fixed_max.png"))
+```
+
+Notice how both "escalated" and "non-escalated" conversations use many high-order arguments.
+Besides, "non-escalated" discussion are more associated with transitions between arguments and coordinating moves.
+
+Now let's look at the graphs with 'min' method to see if low-order arguments were more present in "escalated" conversations.
+Again, I transformed the html output into png format.
+
+```{r minMethod, fig.align = 'center', out.width = "50%", fig.show='hold', fig.cap = "Min method; 'escalated' graph on the left, 'non-escalated' graph on the right"}
+knitr::include_graphics(c("esc_fixed_min.png", "nonesc_fixed_min.png"))
+```
+
+It seems like lower order DHs were actually used more in "escalated" conversations.
+This means that although higher order DHs were used in "escalated" as much as "non-escalated" conversation, but these higher DHs were accompanied by lower DHs (especially DH1); this could be part of the reason why less coordination was seen.
+
+Given both sets of graphs, we had the idea of giving all the labels equal opportunities to be seen; we built the graphs with "all" method.
+```{r allMethod, fig.align = 'center', out.width = "50%", fig.show='hold', fig.cap = "All method; 'escalated' graph on the left, 'non-escalated' graph on the right"}
 knitr::include_graphics(c("esc_fixed_all.png", "nonesc_fixed_all.png"))
 ```
-Comparing the left and right parts of the graphs in "escalated" and "non-escalated" conversation, using "all" labels shows less transitions between the left part (rebuttal tactics) and right part (resolutional tactics) in the "escalated" graph. This means that although authors in escalated conversations used almost the same level of reasoning to discuss their points of view, but it did not encourage using more resolutional arguments such as "Asking questions", "providing a clarification", or "suggesting a compromise".
-See [here](wiki_graph_cambridge.pdf) if you would like to see all the graphs side by side. They are also availabe in "html" format on the projects's repository.
+
+Comparing the left and right parts of the graphs in "escalated" and "non-escalated" conversation, using "all" labels shows less transitions between the left part (rebuttal tactics) and right part (resolutional tactics) in the "escalated" graph.
+This means that although authors in escalated conversations used almost the same level of reasoning to discuss their points of view, but it did not encourage using more resolutional arguments such as "Asking questions", "providing a clarification", or "suggesting a compromise".
+See [here](wiki_graph_cambridge.pdf) if you would like to see all the graphs side by side.
+They are also available in "html" format on the [project's repository](https://github.com/zahra-arjm/wikipedia_discussions/tree/main/docs).
 
 One sample to show how the graph look like in html format; you can zoom on the graph or move the nodes:
+
 ````{=html}
 ```{r results='asis'}
 xfun::file_string('esc_fixed_all.html')
 ```
 ````
+
 # Acknowledgments
-This work has been supported by EPSRC grant EP/T024666/1: “Opening Up Minds” and the University of Sheffield and the University of Cambridge.
+
+This work has been supported by EPSRC grant EP/T024666/1: "Opening Up Minds" and the University of Sheffield and the University of Cambridge.
 
 # References
 
-<div id="refs"></div>
+::: {#refs}
+:::
