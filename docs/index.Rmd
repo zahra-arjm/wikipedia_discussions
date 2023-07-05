@@ -1283,7 +1283,8 @@ This means that although authors in escalated conversations used almost the same
 See [here](wiki_graph_cambridge.pdf) if you would like to see all the graphs side by side.
 They are also available in "html" format on the [project's repository](https://github.com/zahra-arjm/wikipedia_discussions/tree/main/docs).
 
-One sample to show how the graph look like in html format; you can zoom on the graph or move the nodes:
+
+One sample to show how the graph look like in html format; you can zoom on the graph or move the nodes to get a better view:
 
 ````{=html}
 ```{r results='asis'}
