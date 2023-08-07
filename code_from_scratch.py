@@ -88,6 +88,9 @@ def pick_label(list_of_labels, method):
   return final_label
 
 
+def long_ver_to_short_label(label):
+  return labels_short[labels_long.index(label)]
+
 # put the list of labels into labels_long variable
 labels_long = list(super_dict_labels.keys())
 #add 'end' label to the list of labels
@@ -142,10 +145,77 @@ df = pd.DataFrame(data=transition_mtx,
 
 #methods to be applied
 methods = ['all', 'max', 'min']
-conversation_type = ['esc', 'non-esc']
+conversation_type = ['non-esc', 'esc']
 
 transition_dict = {}
 for method in methods:
     transition_dict[method] = {}
     for type in conversation_type:
-        transition_dict[method][type] = df
+        transition_dict[method][type] = df.copy()
+
+# fill out the transition matrices
+for conversation in raw_data:
+  # used idx because we need to access to the next utterance 
+  # in the same for loop
+  for idx_utter in range(len(conversation['utt_labels'])):
+
+    #loop through methods
+    for method in methods:
+      # find from and to labels
+      from_labels = pick_label(conversation['utt_labels'][idx_utter], method)
+      len_from = len(from_labels)
+
+      # two for loops in case we wanted to handle more than 1 label:
+      for from_label in from_labels:
+        #find the short form of the label
+        from_label = long_ver_to_short_label(from_label)
+
+        if idx_utter == len(conversation['utt_labels'])-1:
+          #if it's the last part of conversation the to_label is 'end'
+          to_labels = ['end']
+          
+        else:
+          to_labels = pick_label(conversation['utt_labels'][idx_utter+1], method)
+        
+        len_to = len(to_labels)
+        for to_label in to_labels:
+          #find the short form of the label
+          to_label = long_ver_to_short_label(to_label)
+          transition_dict[method][conversation_type[conversation['escalation']]].loc[from_label,to_label] += \
+            1/(len_from*len_to)
+
+"""Multiple categories of the same DH are among labels. Since we need to simplify the most, I merged them!
+Then, I created another filtered list of the labels and updated the transition matrix accordingly.
+"""
+
+# sum instances of similar DHs
+rep_DHs = ['DH1', 'DH2', 'DH4', 'DH5', 'DH6']
+
+
+for DH in rep_DHs:
+  
+  to_be_rmvd_instance = []
+  #find DH instances
+  DH_x_instances = [inst for inst in labels_short if inst.startswith(DH)]
+  # keep only the second one onward since the first one will be kept in the matrix
+  to_be_rmvd_instance.extend(DH_x_instances[1:])
+
+  # update the matrix by summing all instances in the first instance
+  for method in methods:
+    for type in conversation_type:
+      transition_dict[method][type][DH_x_instances[0]], \
+      transition_dict[method][type].loc[DH_x_instances[0]] = \
+        transition_dict[method][type][DH_x_instances].sum(axis=1), \
+        transition_dict[method][type].loc[DH_x_instances].sum()
+      # rename the summed col
+      transition_dict[method][type]. \
+        rename(columns={DH_x_instances[0]:DH},
+              index={DH_x_instances[0]:DH},
+              inplace=True)
+      transition_dict[method][type].drop(to_be_rmvd_instance,
+                                        axis=0,
+                                        inplace=True)
+      transition_dict[method][type].drop(to_be_rmvd_instance,
+                                        axis=1,
+                                        inplace=True)
+      print('1')
