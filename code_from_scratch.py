@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 import json
-with open("frequency_data.json", "r") as f:
+with open("docs/frequency_data.json", "r") as f:
   raw_data = json.load(f)
 # install pyvis
 # pyvis is a network visualization library based on Networkx
@@ -125,6 +125,9 @@ labels_short = ['Coords',
  'DH2:off',
  'end']
 
+# make a join data structure for short and long labels
+# to handle and filter easier
+labels_joint = [(short, long) for (short, long) in zip(labels_short, labels_long)]
 
 # for the transitions, the data will be stored in a dictionary with
 # each method as a key, and the values are another dict with 
@@ -190,32 +193,50 @@ Then, I created another filtered list of the labels and updated the transition m
 
 # sum instances of similar DHs
 rep_DHs = ['DH1', 'DH2', 'DH4', 'DH5', 'DH6']
-
-
+to_be_removed = []
+to_be_renamed = []
 for DH in rep_DHs:
   
-  to_be_rmvd_instance = []
   #find DH instances
   DH_x_instances = [inst for inst in labels_short if inst.startswith(DH)]
-  # keep only the second one onward since the first one will be kept in the matrix
-  to_be_rmvd_instance.extend(DH_x_instances[1:])
-
-  # update the matrix by summing all instances in the first instance
+  to_be_renamed.append(DH_x_instances[0])
+  to_be_removed.extend(DH_x_instances[1:])
+  # update the matrix by summing all instances into the first instance
   for method in methods:
     for type in conversation_type:
       transition_dict[method][type][DH_x_instances[0]], \
       transition_dict[method][type].loc[DH_x_instances[0]] = \
         transition_dict[method][type][DH_x_instances].sum(axis=1), \
         transition_dict[method][type].loc[DH_x_instances].sum()
-      # rename the summed col
+      # rename the summed col and index
       transition_dict[method][type]. \
         rename(columns={DH_x_instances[0]:DH},
               index={DH_x_instances[0]:DH},
               inplace=True)
-      transition_dict[method][type].drop(to_be_rmvd_instance,
+      # remove unwanted rows and cols
+      transition_dict[method][type].drop(DH_x_instances[1:],
                                         axis=0,
                                         inplace=True)
-      transition_dict[method][type].drop(to_be_rmvd_instance,
+      transition_dict[method][type].drop(DH_x_instances[1:],
                                         axis=1,
                                         inplace=True)
-      print('1')
+# update list of lables
+
+# keep to be removed idx
+to_be_removed_idx = []
+for idx, short in enumerate(labels_short):
+  # rename the first instance
+  if short in to_be_renamed:
+    # del labels_joint[idx]
+    to_be_removed_idx.append(idx)
+    labels_joint.append((short[:3], short[:3]))
+  # remove other instances
+  if short in to_be_removed:
+    # del labels_joint[idx]
+    to_be_removed_idx.append(idx)
+
+# sort in reverse so it doesn't get messed up
+for idx in sorted(to_be_removed_idx, reverse=True):
+  del labels_joint[idx]
+
+print('yay')
