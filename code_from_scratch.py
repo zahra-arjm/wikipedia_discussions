@@ -240,3 +240,35 @@ for idx in sorted(to_be_removed_idx, reverse=True):
   del labels_joint[idx]
 
 print('yay')
+
+"""Let's see the total number of transitions in each layer in one of the methods (escalated and non-escalated conversations)"""
+
+np.sum(np.sum(transition_dict[method][type], axis=0), axis=0)
+
+"""We have ~2000 transition in each layer. To simplify, I merged labels with low inward transitions (because label 'end' does not have any outward transition).
+After filtering, I gathered all the filtered labels into label 'Other'. Since there was an 'Other' label in the given labels, first, I checked if 'Other' label has survived filtering!
+"""
+
+# a function to update transition matrices based on the threshold
+def update_transtion_matrix(transition_matrix, threshold_in):
+  #find filtered labels
+  filter = np.sum(transition_matrix, axis=0) > threshold_in
+  #check if "Other" label has survived!
+  if filter['Other']: #if it's survived on its own
+    #sum all filtered labels into other column/row
+    #and add it to 'Other' col/row
+    transition_matrix[:,'Other'] += np.sum(transition_matrix[:,filter], axis = 1)
+    transition_matrix[other_idx,:,:] += np.sum(transition_matrix[filter,:,:], axis = 0)
+  else: #if 'Other' transitions was lower than the threshold on its own and therefore was removed
+    #sum filtered labels col and keep it in desired shape
+    last_col = np.sum(transition_matrix[:,filter,:], axis = 1)[:,None,:]
+    diagonal_elements = np.sum(transition_matrix[filter,filter,:],axis = 0)[None,None,:]
+    #check if col sum is above threshod after summation
+    if last_col.sum() + diagonal_elements.sum() > threshold_in:
+      #sum all removed rows and keep it in desired shape
+      last_row = np.sum(transition_matrix[filter,:,:], axis = 0)[None,:,:]
+      #add 'Other' sum to transition matrix
+      transition_matrix = np.vstack((np.hstack((transition_matrix, last_col)), np.hstack((last_row, diagonal_elements))))
+
+
+  return transition_matrix
