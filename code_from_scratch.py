@@ -2,6 +2,8 @@
 import numpy as np
 import pandas as pd
 import json
+from itertools import compress
+
 with open("docs/frequency_data.json", "r") as f:
   raw_data = json.load(f)
 # install pyvis
@@ -239,36 +241,165 @@ for idx, short in enumerate(labels_short):
 for idx in sorted(to_be_removed_idx, reverse=True):
   del labels_joint[idx]
 
-print('yay')
 
-"""Let's see the total number of transitions in each layer in one of the methods (escalated and non-escalated conversations)"""
+"""Let's see the total number of transitions in one of the methods (escalated and non-escalated conversations)"""
 
 np.sum(np.sum(transition_dict[method][type], axis=0), axis=0)
 
-"""We have ~2000 transition in each layer. To simplify, I merged labels with low inward transitions (because label 'end' does not have any outward transition).
+"""We have ~2000 transition in mathod. To simplify, I merged labels with low inward transitions (because label 'end' does not have any outward transition).
 After filtering, I gathered all the filtered labels into label 'Other'. Since there was an 'Other' label in the given labels, first, I checked if 'Other' label has survived filtering!
 """
 
-# a function to update transition matrices based on the threshold
-def update_transtion_matrix(transition_matrix, threshold_in):
+# a function to update transition matrices based on the threshold 
+# (get both esc and non-esc) matrices to keep their label consistent
+def update_transition_matrices(transition_matrices, threshold_in):
+
+  ''' This function gets the dict of the two transition matrics for the
+  two type of the conversation (esc and non-esc) as an input and returns
+  the curated matrices as output. 
+  '''
+
+  # sum both to apply the filter
+  transition_matrix_sum = transition_matrices['esc'] + \
+                          transition_matrices['non-esc']
   #find filtered labels
-  filter = np.sum(transition_matrix, axis=0) > threshold_in
-  #check if "Other" label has survived!
-  if filter['Other']: #if it's survived on its own
-    #sum all filtered labels into other column/row
-    #and add it to 'Other' col/row
-    transition_matrix[:,'Other'] += np.sum(transition_matrix[:,filter], axis = 1)
-    transition_matrix[other_idx,:,:] += np.sum(transition_matrix[filter,:,:], axis = 0)
-  else: #if 'Other' transitions was lower than the threshold on its own and therefore was removed
-    #sum filtered labels col and keep it in desired shape
-    last_col = np.sum(transition_matrix[:,filter,:], axis = 1)[:,None,:]
-    diagonal_elements = np.sum(transition_matrix[filter,filter,:],axis = 0)[None,None,:]
-    #check if col sum is above threshod after summation
-    if last_col.sum() + diagonal_elements.sum() > threshold_in:
-      #sum all removed rows and keep it in desired shape
-      last_row = np.sum(transition_matrix[filter,:,:], axis = 0)[None,:,:]
-      #add 'Other' sum to transition matrix
-      transition_matrix = np.vstack((np.hstack((transition_matrix, last_col)), np.hstack((last_row, diagonal_elements))))
+  filter = transition_matrix_sum.sum(axis=0) < threshold_in
+  # sum all filtered cols and rows into 'Other'; to avoid
+  # summing the 'Other' itselt twice, make the filter['Other']
+  # true for now
+  filter['Other'] = True
+  for type in conversation_type:
+    transition_matrices[type]['Other'] , transition_matrices[type].loc['Other'] = \
+      transition_matrices[type][transition_matrix_sum.columns[filter]].sum(axis=1), \
+      transition_matrices[type].loc[transition_matrix_sum.columns[filter]].sum(axis=0)
+  # see if 'Other' survives now
+  filter['Other'] = transition_matrix_sum['Other'].sum(axis=0) < threshold_in
+
+  for type in conversation_type:
+    transition_matrices[type].drop(transition_matrix_sum.columns[filter],
+                          axis=0,
+                          inplace=True)
+    transition_matrices[type].drop(transition_matrix_sum.columns[filter],
+                          axis=1,
+                          inplace=True)
+  return transition_matrices 
+
+threshold_in = 20
+# update transition_dict
+for method in methods:
+  transition_dict[method] = \
+    update_transition_matrices(transition_dict[method], threshold_in)
 
 
-  return transition_matrix
+
+"""## **Part 3: graph for filtered transitions and fixed nodes**
+
+For the visualizing nodes, we wanted to divide the graph into two parts. A part for DH labels which are ordered based on their level. The other part would be all other lables. In the next cell, I separated the labels and also sorted them alphabetically.
+
+"""
+
+
+
+
+
+
+"""In the end, I built six (three, number of methods by two, escalated and non-escalated) graphs.
+The size of each node is proportional to the number of inward transitions. The width of each edge is proportional to the number of transition between the two nodes (except for the transitions to node 'end').
+I added a variable 'threshod' to omit the eadges with less number of transition. If any edge transition is lower than the 'threshod' the edge won't be shown in the graph.
+I also have removed the transitions from an edge to itself. It helped declutter the graph substantially. Besides, it meant that the conversation remained in a state for a longer time (which we did not care about).
+
+The graphs will be save as 'html' files in the current directory (after running next cell, open 'files' on the left menu bar; you should see two files with names "nonesc_fixed.html" and "esc_fixed.html"; the files are downloadable).
+
+First, let's look at the 'max' graphs:
+"""
+def divide_labels_and_sort(transition_matrix):
+  # get column names
+  labels = transition_matrix.columns
+
+  is_DH = [label.startswith('DH') for label in labels]
+  sorted_DH = sorted(list(compress(labels, is_DH)), reverse=True)
+  sorted_non_DH = sorted([label for label in labels if label not in sorted_DH])
+  return sorted_DH, sorted_non_DH
+
+
+def generate_node_coordinates(DH_labels, non_DH_labels):
+  # empty list to keep the coordinates of the nodes
+  ys = []
+  xs = []
+  # generate coordinates for all the nodes in the left part
+  r = 300
+  y = np.linspace(0, 2*r, len(DH_labels), dtype=int)
+  x = (-np.sqrt(r**2 - ((y-r)**2)/1.1) - 50).astype(int)
+  ys.extend(list(y))
+  xs.extend(list(x))
+  # generate coordinates for all the nodes in the right part
+  y = np.linspace(0, 2*r, len(non_DH_labels), dtype=int)
+  x = (np.sqrt(r**2 - ((y-r)**2)/1.1) + 50).astype(int)
+  ys.extend(list(y))
+  xs.extend(list(x))
+
+  return xs, ys
+
+
+
+def plot_network(transition_matrix, type):
+
+  net = Network(height='900px', width='900px',directed =True)
+  # a threshold for showing the edge
+  threshold = 12
+  node_color = '#0000CC'
+  if type == 'esc':
+    edge_color = '#FF9933'
+  else:
+    edge_color = '#33FF33'
+
+  # add nodes to network
+  #left column for DHs & right col for the rest
+  # index is the sorted index in DH or non-DH (sotrted_DH or sorted_non_DH)
+  # idx is the index in the filtered label matrix (all the labels)
+  # each node would be part of an ellipse for the visualization purposes
+  # each group of nodes is part of a half ellipse (two different circles)
+
+  # get labels sorted and divide into DH and non-DH
+  sorted_DH, sorted_non_DH = divide_labels_and_sort(transition_matrix)
+
+  # get node coordinates
+  X, Y = generate_node_coordinates(sorted_DH, sorted_non_DH)
+  
+
+  # add nodes
+  for idx_n, node in enumerate(sorted_DH + sorted_non_DH):
+
+    # get size of the node (frequency of inward transitions)
+    node_size = int(transition_matrix[node].sum())
+    net.add_node(idx_n, label=node, value=node_size*10,
+               x= X[idx_n], y=Y[idx_n],
+               color=node_color)
+  # add edges
+  for idx_s, source in enumerate(sorted_DH + sorted_non_DH):
+    for idx_t, target in enumerate(sorted_DH + sorted_non_DH):
+      #remove transitions to the source itself
+      if target == source:
+        continue
+
+      edge_weight = int(transition_matrix[source][target])
+      # show transitions to 'end' node anyway
+      if target == 'end':
+        edge_weight = threshold + 1
+
+      if edge_weight > threshold:
+        net.add_edge(idx_s, idx_t,
+                  weight=edge_weight,
+                  value=edge_weight,
+                  color=edge_color)
+  # toggle_physics method changes the position of nodes based on the strength
+  # of the edges. Since we wanted to have the same positions for both graphs, this
+  # option is off
+  net.toggle_physics(False)
+  net.show("bleh.html", notebook=False)
+
+  # save/show the graph
+  # return net
+plot_network(transition_dict[method][type], type)
+
+print('yay')
