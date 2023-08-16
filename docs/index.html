@@ -699,7 +699,7 @@ for idx in sorted(to_be_removed_idx, reverse=True):
 <p>We have ~2000 transition in each method/conversation.
 To simplify, I merged labels with low inward transitions (because label ‘end’ does not have any outward transition).
 I summed over each column over both conversation types (we wanted to keep similar labels for both type of conversation to compare).
-After filtering, I summed all the filtered labels into label ‘Other’. Checkout “update_transition_matrices” function here [ref to the functions].</p>
+After filtering, I summed all the filtered labels into label ‘Other’. Checkout “update_transition_matrices” function <a href="https://github.com/zahra-arjm/wikipedia_discussions/blob/main/docs/my_functions.py">here</a>.</p>
 <pre class="python"><code>#filter the columns with less than a threshold of the inward transitions
 threshold_in = 40 # overall 4000 transitions. 40 is one percent
 
@@ -714,9 +714,9 @@ for method in methods:
 <p>For the visualizing nodes, we wanted to divide the graph into two parts.
 A part for DH labels which are ordered based on their level.
 The other part would be all other labels.
-It will get done using function divide_labels_and_sort; then I used a function called generate_node_coordinates to map each node to the space and finally those mentioned functions are used inside plot_network to get plotted. If you want to see how those functions work, check them out here [ref to functions].</p>
+It will get done using function divide_labels_and_sort; then I used a function called generate_node_coordinates to map each node to the space and finally those mentioned functions are used inside plot_network to get plotted. If you want to see how those functions work, check them out <a href="https://github.com/zahra-arjm/wikipedia_discussions/blob/main/docs/my_functions.py">here</a>.</p>
 <p>I added a variable ‘threshold’ to omit the edges with low number of transitions. If any edge transition is lower than the ‘threshold’ the edge won’t be shown in the graph. I also have removed the transitions from an edge to itself. It helped de-clutter the graph substantially. Besides, the transition from a node to itself means the conversation remained in a state for a longer time (which we did not care about).</p>
-<p>The graphs are saved as ‘html’ files in the current directory (you can find them under the names “non-esc_[method].html” and “esc_[method].html” here [ref to the folder on github]).</p>
+<p>The graphs are saved as ‘html’ files in the current directory (you can find them under the names “non-esc_[method].html” and “esc_[method].html” <a href="https://github.com/zahra-arjm/wikipedia_discussions/tree/main/docs">here</a>).</p>
 <pre class="python"><code>for method in methods:
   for c_type in conversation_type:
     network = funcs.plot_network(transition_dict[method][c_type], c_type)
@@ -757,7 +757,11 @@ Figure 3.3: All method; ‘escalated’ graph on the left, ‘non-escalated’ g
 This means that although authors in escalated conversations used almost the same level of reasoning to discuss their points of view, but it did not encourage using more resolutional arguments such as “Asking questions”, “providing a clarification”, or “suggesting a compromise”.
 See <a href="wiki_graph_cambridge.pdf">here</a> if you would like to see all the graphs side by side.
 They are also available in “html” format on the <a href="https://github.com/zahra-arjm/wikipedia_discussions/tree/main/docs">project’s repository</a>.</p>
-<p>One sample to show how the graph look like in “html” format; you can zoom on the graph or move the nodes:</p>
+<p>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+One sample to show how the graph look like in “html” format; you can zoom on the graph or move the nodes:
+=======</p>
+<p>One sample to show how the graph look like in html format; you can zoom on the graph or move the nodes to get a better view:
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; 2a158f9399d4c29c7e50f45167a6e3a003990928</p>
 
 ```r
 xfun::file_string(&#39;esc_all.html&#39;)

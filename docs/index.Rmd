@@ -377,7 +377,7 @@ np.sum(np.sum(transition_dict[method][c_type], axis=0), axis=0)
 We have \~2000 transition in each method/conversation.
 To simplify, I merged labels with low inward transitions (because label 'end' does not have any outward transition).
 I summed over each column over both conversation types (we wanted to keep similar labels for both type of conversation to compare).
-After filtering, I summed all the filtered labels into label 'Other'. Checkout "update_transition_matrices" function here [ref to the functions]. 
+After filtering, I summed all the filtered labels into label 'Other'. Checkout "update_transition_matrices" function [here](https://github.com/zahra-arjm/wikipedia_discussions/blob/main/docs/my_functions.py). 
 
 ```{python}
 #filter the columns with less than a threshold of the inward transitions
@@ -394,11 +394,11 @@ for method in methods:
 For the visualizing nodes, we wanted to divide the graph into two parts.
 A part for DH labels which are ordered based on their level.
 The other part would be all other labels.
-It will get done using function divide_labels_and_sort; then I used a function called generate_node_coordinates to map each node to the space and finally those mentioned functions are used inside plot_network to get plotted. If you want to see how those functions work, check them out here [ref to functions].
+It will get done using function divide_labels_and_sort; then I used a function called generate_node_coordinates to map each node to the space and finally those mentioned functions are used inside plot_network to get plotted. If you want to see how those functions work, check them out [here](https://github.com/zahra-arjm/wikipedia_discussions/blob/main/docs/my_functions.py).
 
 I added a variable 'threshold' to omit the edges with low number of transitions. If any edge transition is lower than the 'threshold' the edge won't be shown in the graph. I also have removed the transitions from an edge to itself. It helped de-clutter the graph substantially. Besides, the transition from a node to itself means the conversation remained in a state for a longer time (which we did not care about).
 
-The graphs are saved as 'html' files in the current directory (you can find them under the names "non-esc_[method].html" and "esc_[method].html" here [ref to the folder on github]).
+The graphs are saved as 'html' files in the current directory (you can find them under the names "non-esc_[method].html" and "esc_[method].html" [here](https://github.com/zahra-arjm/wikipedia_discussions/tree/main/docs)).
 
 ```{python}
 for method in methods:
