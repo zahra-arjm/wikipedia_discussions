@@ -435,7 +435,12 @@ This means that although authors in escalated conversations used almost the same
 See [here](wiki_graph_cambridge.pdf) if you would like to see all the graphs side by side.
 They are also available in "html" format on the [project's repository](https://github.com/zahra-arjm/wikipedia_discussions/tree/main/docs).
 
+<<<<<<< HEAD
 One sample to show how the graph look like in "html" format; you can zoom on the graph or move the nodes:
+=======
+
+One sample to show how the graph look like in html format; you can zoom on the graph or move the nodes to get a better view:
+>>>>>>> 2a158f9399d4c29c7e50f45167a6e3a003990928
 
 ````{=html}
 ```{r results='asis'}
