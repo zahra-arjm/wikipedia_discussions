@@ -67,29 +67,31 @@ In the next sections, you will find the journey for making those graphs. If you 
 
 ## Import libraries.
 First, import "reticulate" for running python codes.
-Then installing "pyvis" in this python version.
-"Pyvis" is the library for visualizing graphs.
+Then installing "pyvis" in this python version. "Pyvis" is the library for visualizing graphs.
 Then, in python import "numpy" for handling matrices and "json" for handling the raw data file (opening and reading .json format).
 
 ```{r results='hide'}
 library(reticulate)
 library(R3port)
-py_install("pyvis")
+py_install("pyvis==0.3.1")
+py_install("pandas")
 ```
 
 ```{python}
 #import needed libraries
 import numpy as np
+import pandas as pd
 import json
-
+from itertools import compress
 from collections import Counter
 from pyvis.network import Network
+# also import my own functions
+import my_functions as funcs
 ```
 
 ## Data cleaning and wrangling
 
-Next, open the data file and load it.
-Let's have a look at how the data is formatted:
+Next, open the data file and load it. Let's have a look at how data is saved:
 
 ```{python}
 # Opening JSON file
@@ -102,11 +104,10 @@ raw_data = json.load(raw_data)
 raw_data[0:5]
 ```
 
-The raw_data is a list containing multiple dictionaries.
-Each dictionary has two keys:
+The raw_data is a list containing multiple dictionaries. Each dictionary has two keys:
 
 -   escalation: which shows the type of conversation (either escalated with value 1 or non-escalated with value 0)
--   utt_labels: which is shows each utterance's label. Its value is a list of lists containing each utterance label(s). These lists are in the same order that happens in the conversation. To get an idea of the labels' frequency, I built a dictionary containing all the labels and their frequencies:
+-   utt_labels: which shows each utterance's label. Its value is a list of lists containing each utterance label(s). These lists are in the same order that happens in the conversation. To get an idea of the labels' frequency, I built a dictionary containing all the labels and their frequencies:
 
 ```{python}
 #count frequency of each label in a dictionary
@@ -140,8 +141,6 @@ for conversation in raw_data:
 
 super_dict_labels = {}
 for i in range(len(raw_data)):
-
-
   dict_list = ([dict(Counter(x)) for x in raw_data[i]['utt_labels']])
   for item in dict_list:
     for k, v in item.items():
@@ -149,7 +148,12 @@ for i in range(len(raw_data)):
         super_dict_labels[k] += v
       else:
         super_dict_labels[k] = v
-super_dict_labels
+# put the list of labels into labels_long variable
+labels_long = list(super_dict_labels.keys())
+#add 'end' label to the list of labels
+labels_long.append('end')
+# view long labels
+print(labels_long)
 ```
 
 Explore the stats a bit:
@@ -197,8 +201,8 @@ print(F"Maximum number of utterances in a conversation: {(np.array(len_esc + len
 \~25% of the utterances are multi-labeled.
 To build a transition matrix, I needed to simplify the multi-label utterances.
 The 'pick_label' function gets the list of labels and the method, and outputs the final label(s).
-I needed to either reduce multi-labels to one label or distribute the transition from i to i+1 th utterance between all the labels; such that each pair of label is involved equally.
-the function 'pick_label' accepts three methods:
+I needed to either reduce multi-labels to one label or distribute the transition from i to i+1 th utterance between all the labels; such that each set of label is counted equally.
+With that said, the function 'pick_label' accepts three methods:
 
 -   all: the output will be the same as the input.
     It gives back all the labels
@@ -216,121 +220,9 @@ Weight of the edge between two nodes in case of using 'all' method:
 \frac{1}{\text{(no of labels in ith utterance)} \text{(no labels in (i+1)th utterance)}}
 \end{align}
 ```
-```{python}
-# a function to pick one of the labels if there are multiple labels available for a part of an utter
-def pick_label(list_of_labels, method):
-  ''' 
-  This function picks one of the lables in case there are multiple labels
-   available.
-  In case both DH and non-DH labels are availabe it picks the DHs.
-  In case all of the labels are non-DH it picks the one with the highest frequency.
 
-  Args:
-  list_of_labels (list): labels for part of the utterance
-  method (string): if max or min, picks the highest or lowest DH. If all gives back all labels
-  '''
-  
-  # first check no of labels or if method is 'all'
-  if len(list_of_labels) == 1 or method == 'all':
-    final_label = list_of_labels
-  else: #case of multiple labels
-    #check how many DHs are present
-    count_DH = 0
-    for item in list_of_labels:
-      if item[0:2] == 'DH':
-        count_DH += 1
-    if count_DH == 0:
-      #pick the one with the highest frequency
-      label_freqs = [super_dict_labels[x] for x in list_of_labels]
-      final_label = [list(super_dict_labels.keys())[list(super_dict_labels.values()).index(max(label_freqs))]]
-    elif count_DH == 1:
-      # pick the DH
-      final_label = [i for i in list_of_labels if i.startswith('DH')]
-    else:
-      
-      #extract DH_no s
-      DH_no = [int(i[2]) for i in list_of_labels if i.startswith('DH')]
-      # select the DH based on the method specified
-      if method == 'min':
-        final_label = [i for i in list_of_labels 
-                       if (i.startswith('DH') and int(i[2]) == min(DH_no))]
-      elif method == 'max':
-        final_label = [i for i in list_of_labels 
-                       if (i.startswith('DH') and int(i[2]) == max(DH_no))]                                                 
 
-  return final_label
-
-```
-
-Now, build the transition matrix.
-The matrix contains all the labels plus a label called 'end'.
-The last list in each 'utter_label' is followed by 'end' (or end of the conversation).
-Here, we can change the method of extracting labels in 'pick_label' function by changing 'method' variable.
-The 'transition_all' variable is a 3-dimensional array.
-On the first layer, we have the transitions between every two labels, for the non-escalated conversations (or label 0 on escalation), and on the second layer, we have the same thing for escalated conversations.
-I created three versions of transition matrix to try differnt methods of picking labels on the data.
-
-```{python}
-# create 3 np arrays to keep transitions for esc and non-esc conversations
-# 24 unique labels + 1 row/col for "end"
-#it's a 25*25*2 matrix. Layer 0 is for non_esc and 1 is for escelated conversations
-transition_all = np.zeros((len(super_dict_labels)+1, len(super_dict_labels)+1, 2), float)
-transition_max = np.zeros_like(transition_all)
-transition_min = np.zeros_like(transition_all)
-
-# put the list of labels into labels_long variable
-labels_long = list(super_dict_labels.keys())
-#add 'end' label to the list of labels
-labels_long.append('end')
-#choose which method to apply
-methods = ['all', 'max', 'min']
-# fill out the transition matrix
-for conversation in raw_data:
-  for idx_labels in range(len(conversation['utt_labels'])):
-
-    #loop through methods
-    for method in methods:
-      # find from and to labels
-      from_labels = pick_label(conversation['utt_labels'][idx_labels], method)
-      len_from = len(from_labels)
-      
-      # two for loops in case we wanted to more than 1 label:
-      for from_label in from_labels:
-        #find index of the label in the list of all labels
-        from_idx = labels_long.index(from_label)
-    
-        if idx_labels == len(conversation['utt_labels'])-1:
-          #if it's the last part of conversation the to_label is 'end'
-          to_idx = 24
-          if method == 'all':              
-            transition_all[from_idx,to_idx,int(conversation['escalation'])] += 1/(len_from*len_to)
-          elif method == 'min':
-            transition_min[from_idx,to_idx,int(conversation['escalation'])] += 1/(len_from*len_to)
-          else:
-            transition_max[from_idx,to_idx,int(conversation['escalation'])] += 1/(len_from*len_to)
-        else:
-          to_labels = pick_label(conversation['utt_labels'][idx_labels+1], method)
-          len_to = len(to_labels)
-          for to_label in to_labels:
-            #find index of the label in the list of all labels
-            to_idx = labels_long.index(to_label)
-            #add transition to transition matrix
-            if method == 'all':              
-              transition_all[from_idx,to_idx,int(conversation['escalation'])] += 1/(len_from*len_to)
-            elif method == 'min':
-              transition_min[from_idx,to_idx,int(conversation['escalation'])] += 1/(len_from*len_to)
-            else:
-              transition_max[from_idx,to_idx,int(conversation['escalation'])] += 1/(len_from*len_to)
-            
-```
-
-View long labels and then shorten them.
-Later, I will use short labels for node identification in the graph.
-
-```{python}
-# view long labels
-print(labels_long)
-```
+Let's have a short version of the long labels. Later, I will use short labels for node identification in the graph.
 
 ```{python}
 #short labels
@@ -359,915 +251,175 @@ labels_short = ['Coords',
  'DH4:without evid',
  'DH2:off',
  'end']
+# make a joint data structure for short and long labels to handle and filter easier
+labels_joint = [(short, long) for (short, long) in zip(labels_short, labels_long)]
 ```
-
-Multiple categories of the same DH are among labels.
-Since we need to simplify the most, I merged them!
-Then, I created another filtered list of the labels and updated the 'trasiton_all' matrix accordingly.
+Multiple categories of the same DH are among labels. Since we need to simplify the most, I merged them!
+But first, we need to build the transition matrices based on the raw_data.
+Each matrix contains all the labels plus a label called 'end'.
+The last list in each 'utter_label' is followed by 'end' (or end of the conversation).
+Here, we can change the method of extracting labels in 'pick_label' function by changing 'method' variable.
+The data will be stored in a dictionary with each method as a key, and the values are another dict with keys as escalated and non-escalated types and values equal to an empty dataframe. The dataframe rows and columns are the short labels.
 
 ```{python}
-# sum instances of similar DHs
+
+# create empty dataframe with rows and columns labeled by 
+# short labels and size equal to any empty transition matrix
+transition_mtx = np.zeros((len(labels_short), len(labels_short)), float)
+
+df = pd.DataFrame(data=transition_mtx,
+                  columns=labels_short,
+                  index=labels_short)
+
+#methods to be applied
+methods = ['all', 'max', 'min']
+conversation_type = ['non-esc', 'esc']
+
+transition_dict = {}
+for method in methods:
+    transition_dict[method] = {}
+    for c_type in conversation_type:
+        transition_dict[method][c_type] = df.copy()
+
+# fill out the transition matrices
+for conversation in raw_data:
+  # used index because we need to access to the next utterance 
+  # in the same for loop
+  for idx_utter in range(len(conversation['utt_labels'])):
+
+    #loop through methods
+    for method in methods:
+      # find from and to labels
+      from_labels = funcs.pick_label(conversation['utt_labels'][idx_utter], super_dict_labels, method)
+      len_from = len(from_labels)
+
+      # two for loops in case we wanted to handle more than 1 label:
+      for from_label in from_labels:
+        #find the short form of the label
+        from_label = funcs.long_ver_to_short_label(from_label, labels_joint)
+
+        if idx_utter == len(conversation['utt_labels'])-1:
+          #if it's the last part of conversation the to_label is 'end'
+          to_labels = ['end']
+          
+        else:
+          to_labels = funcs.pick_label(conversation['utt_labels'][idx_utter+1], super_dict_labels, method)
+        
+        len_to = len(to_labels)
+        for to_label in to_labels:
+          #find the short form of the label
+          to_label = funcs.long_ver_to_short_label(to_label, labels_joint)
+          transition_dict[method][conversation_type[conversation['escalation']]].loc[from_label,to_label] += \
+            1/(len_from*len_to)
+```
+
+
+Then, I updated the list of the labels to remove duplicate DHs. 
+
+```{python}
+
+# sum instances of similar DHs and put them into the first instance and rename it
 rep_DHs = ['DH1', 'DH2', 'DH4', 'DH5', 'DH6']
-#keep indices of duplicates
-to_be_rmvd_idx = []
+to_be_removed = []
+to_be_renamed = []
 for DH in rep_DHs:
-
+  
   #find DH instances
-  idx = [labels_short.index(i) for i in labels_short if i.startswith(DH)]
-  to_be_rmvd_idx.extend(idx)
-  #sum similir DHs cols and keep it in desired shape
-  last_col = np.sum(transition_all[:,idx,:], axis = 1)[:,None,:]
-  #sum all DH4s rows and keep it in desired shape 
-  last_row = np.sum(transition_all[idx,:,:], axis = 0)[None,:,:]
-  diagonal_elements = np.sum(transition_all[idx,idx,:],axis = 0)[None,None,:]
-  #add computed rows and columns to the transition_all array
-  transition_all = np.vstack((np.hstack((transition_all, last_col)), np.hstack((last_row, diagonal_elements))))
+  DH_x_instances = [inst for inst in labels_short if inst.startswith(DH)]
+  to_be_renamed.append(DH_x_instances[0])
+  to_be_removed.extend(DH_x_instances[1:])
+  # update the matrix by summing all instances into the first instance
+  for method in methods:
+    for c_type in conversation_type:
+      transition_dict[method][c_type][DH_x_instances[0]], \
+      transition_dict[method][c_type].loc[DH_x_instances[0]] = \
+        transition_dict[method][c_type][DH_x_instances].sum(axis=1), \
+        transition_dict[method][c_type].loc[DH_x_instances].sum()
+      # rename the summed col and index
+      transition_dict[method][c_type]. \
+        rename(columns={DH_x_instances[0]:DH},
+              index={DH_x_instances[0]:DH},
+              inplace=True)
+      # remove unwanted rows and cols
+      transition_dict[method][c_type].drop(DH_x_instances[1:],
+                                        axis=0,
+                                        inplace=True)
+      transition_dict[method][c_type].drop(DH_x_instances[1:],
+                                        axis=1,
+                                        inplace=True)
+# update list of lables
 
-  # method 'min'
-  #sum similir DHs cols and keep it in desired shape
-  last_col = np.sum(transition_min[:,idx,:], axis = 1)[:,None,:]
-  #sum all DH4s rows and keep it in desired shape 
-  last_row = np.sum(transition_min[idx,:,:], axis = 0)[None,:,:]
-  diagonal_elements = np.sum(transition_min[idx,idx,:],axis = 0)[None,None,:]
-  transition_min = np.vstack((np.hstack((transition_min, last_col)), np.hstack((last_row, diagonal_elements))))
+# keep to be removed idx
+to_be_removed_idx = []
+for idx, short in enumerate(labels_short):
+  # rename the first instance
+  if short in to_be_renamed:
+    # del labels_joint[idx]
+    to_be_removed_idx.append(idx)
+    labels_joint.append((short[:3], short[:3]))
+  # remove other instances
+  if short in to_be_removed:
+    # del labels_joint[idx]
+    to_be_removed_idx.append(idx)
 
-  # method 'max'
-  #sum similir DHs cols and keep it in desired shape
-  last_col = np.sum(transition_max[:,idx,:], axis = 1)[:,None,:]
-  #sum all DH4s rows and keep it in desired shape 
-  last_row = np.sum(transition_max[idx,:,:], axis = 0)[None,:,:]
-  diagonal_elements = np.sum(transition_max[idx,idx,:],axis = 0)[None,None,:] 
-  transition_max = np.vstack((np.hstack((transition_max, last_col)), np.hstack((last_row, diagonal_elements))))
-#append careated labels to label list 
-labels_short.extend(rep_DHs)
-labels_long.extend(rep_DHs)
+# sort in reverse so it doesn't get messed up
+for idx in sorted(to_be_removed_idx, reverse=True):
+  del labels_joint[idx]
 
-#create a new list of lables and remove previous duplicates
-labels_short_filtered = [label for i, label in enumerate(labels_short) if i not in to_be_rmvd_idx]
-labels_long_filtered = [label for i, label in enumerate(labels_long) if i not in to_be_rmvd_idx]
-
-#filter transition matrix for to be removed indices
-transition_all = np.delete(transition_all, to_be_rmvd_idx, axis = 0)
-transition_all = np.delete(transition_all, to_be_rmvd_idx, axis = 1)
-
-transition_min = np.delete(transition_min, to_be_rmvd_idx, axis = 0)
-transition_min = np.delete(transition_min, to_be_rmvd_idx, axis = 1)
-
-transition_max = np.delete(transition_max, to_be_rmvd_idx, axis = 0)
-transition_max = np.delete(transition_max, to_be_rmvd_idx, axis = 1)
 ```
 
-Let's see the total number of transitions in each layer (escalated and non-escalated conversations)
+Let's see the total number of transitions in each converations type (escalated and non-escalated conversations)
 
 ```{python}
-np.sum(np.sum(transition_max, axis=0), axis=0)
+np.sum(np.sum(transition_dict[method][c_type], axis=0), axis=0)
 ```
 
-We have \~2000 transition in each layer.
+We have \~2000 transition in each method/conversation.
 To simplify, I merged labels with low inward transitions (because label 'end' does not have any outward transition).
-I summed over each column over both layers.
-After filtering, I gathered all the filtered labels into label 'Other'.
-Since there was an 'Other' label in the given labels, first, I checked if 'Other' label has survived filtering!
-To make the code simpler I have used three different cells for each method.
+I summed over each column over both conversation types (we wanted to keep similar labels for both type of conversation to compare).
+After filtering, I summed all the filtered labels into label 'Other'. Checkout "update_transition_matrices" function here [ref to the functions]. 
 
 ```{python}
 #filter the columns with less than a threshold of the inward transitions
 threshold_in = 40 # overall 4000 transitions. 40 is one percent
 
-#find filter indices
-filter = (np.sum(np.sum(transition_all, axis=0), axis=1)) < threshold_in
-
-# find index of other in label list
-other_idx = labels_short.index('Other')
-
-
-
-#check if "other" label has survived!
-if not filter[other_idx]: #if it's survived on its own
-
-  #sum all filtered labels into other column/row
-  #and add it with 'Other' col
-  transition_all[:,other_idx,:] += np.sum(transition_all[:,filter,:], axis = 1)
-  #sum all DH4s rows and keep it in desired shape 
-  transition_all[other_idx,:,:] += np.sum(transition_all[filter,:,:], axis = 0)
-
-  # filter to find the above threshold ones
-  filter = (np.sum(np.sum(transition_all, axis=0), axis=1)) > threshold_in
-  trans_flt_all = transition_all[filter,:,:][:,filter,:]
-else: #if 'Other' transitions was lower than the threshold on its own and therefore was removed
-  #sum filtered labels col and keep it in desired shape
-  last_col = np.sum(transition_all[:,filter,:], axis = 1)[:,None,:]
-  diagonal_elements = np.sum(transition_all[filter,filter,:],axis = 0)[None,None,:]
-  #check if col sum is below threshod after summation
-  if last_col.sum() + diagonal_elements.sum() < threshold_in:
-    filter = (np.sum(np.sum(transition_all, axis=0), axis=1)) > threshold_in
-    trans_flt_all = transition_all[filter,:,:][:,filter,:]
-  else:
-    #sum all removed rows and keep it in desired shape 
-    last_row = np.sum(transition_all[filter,:,:], axis = 0)[None,:,:]
-    
-
-    #add 'Other' sum to transition matrix
-    transition_all = np.vstack((np.hstack((transition_all, last_col)), np.hstack((last_row, diagonal_elements))))
-      # filter to find the remaining ones
-    filter = (np.sum(np.sum(transition_all, axis=0), axis=1)) > threshold_in
-
-    trans_flt_all = transition_all[filter,:,:][:,filter,:]
-
-#filter labels list accordingnly
-labels_long_flt_all = [item for (item, cond) in zip(labels_long_filtered, filter) if cond]
-labels_short_flt_all = [item for (item, cond) in zip(labels_short_filtered, filter) if cond]
-
-#check if Other has survived this time
-if trans_flt_all.shape[0] != len(labels_long_flt_all): #'Other' label transition has survived after summation
-  labels_long_flt_all.append('Other')
-  labels_short_flt_all.append('Other')
+threshold_in = 40
+# update transition_dict
+for method in methods:
+  transition_dict[method] = \
+    funcs.update_transition_matrices(transition_dict[method], threshold_in, conversation_type)
 ```
-
-```{python}
-#method 'min'
-
-#find filter indices
-filter = (np.sum(np.sum(transition_all, axis=0), axis=1)) < threshold_in
-
-# find index of other in label list
-other_idx = labels_short.index('Other')
-
-
-#check if "other" label has survived!
-if not filter[other_idx]: #if it's survived on its own
-
-  #sum all filtered labels into other column/row
-  #and add it with 'Other' col
-  transition_min[:,other_idx,:] += np.sum(transition_min[:,filter,:], axis = 1)
-  #sum all DH4s rows and keep it in desired shape 
-  transition_min[other_idx,:,:] += np.sum(transition_min[filter,:,:], axis = 0)
-
-  # filter to find the above threshold ones
-  filter = (np.sum(np.sum(transition_min, axis=0), axis=1)) > threshold_in
-  trans_flt_min = transition_min[filter,:,:][:,filter,:]
-else: #if 'Other' transitions was lower than the threshold on its own and therefore was removed
-  #sum filtered labels col and keep it in desired shape
-  last_col = np.sum(transition_min[:,filter,:], axis = 1)[:,None,:]
-  diagonal_elements = np.sum(transition_min[filter,filter,:],axis = 0)[None,None,:]
-  #check if col sum is below threshod after summation
-  if last_col.sum() + diagonal_elements.sum() < threshold_in:
-    filter = (np.sum(np.sum(transition_min, axis=0), axis=1)) > threshold_in
-    trans_flt_min = transition_min[filter,:,:][:,filter,:]
-  else:
-    #sum all removed rows and keep it in desired shape 
-    last_row = np.sum(transition_min[filter,:,:], axis = 0)[None,:,:]
-    
-
-    #add 'Other' sum to transition matrix
-    transition_min = np.vstack((np.hstack((transition_min, last_col)), np.hstack((last_row, diagonal_elements))))
-      # filter to find the remaining ones
-    filter = (np.sum(np.sum(transition_min, axis=0), axis=1)) > threshold_in
-
-    trans_flt_min = transition_min[filter,:,:][:,filter,:]
-
-#filter labels list accordingnly
-labels_long_flt_min = [item for (item, cond) in zip(labels_long_filtered, filter) if cond]
-labels_short_flt_min = [item for (item, cond) in zip(labels_short_filtered, filter) if cond]
-
-#check if Other has survived this time
-if trans_flt_min.shape[0] != len(labels_long_flt_min): #'Other' label transition has survived after summation
-  labels_long_flt_min.append('Other')
-  labels_short_flt_min.append('Other')
-```
-
-```{python}
-#method 'max'
-
-#find filter indices
-filter = (np.sum(np.sum(transition_all, axis=0), axis=1)) < threshold_in
-
-# find index of other in label list
-other_idx = labels_short.index('Other')
-
-
-#check if "other" label has survived!
-if not filter[other_idx]: #if it's survived on its own
-
-  #sum all filtered labels into other column/row
-  #and add it with 'Other' col
-  transition_max[:,other_idx,:] += np.sum(transition_max[:,filter,:], axis = 1)
-  #sum all DH4s rows and keep it in desired shape 
-  transition_max[other_idx,:,:] += np.sum(transition_max[filter,:,:], axis = 0)
-
-  # filter to find the above threshold ones
-  filter = (np.sum(np.sum(transition_max, axis=0), axis=1)) > threshold_in
-  trans_flt_max = transition_max[filter,:,:][:,filter,:]
-else: #if 'Other' transitions was lower than the threshold on its own and therefore was removed
-  #sum filtered labels col and keep it in desired shape
-  last_col = np.sum(transition_max[:,filter,:], axis = 1)[:,None,:]
-  diagonal_elements = np.sum(transition_max[filter,filter,:],axis = 0)[None,None,:]
-  #check if col sum is below threshod after summation
-  if last_col.sum() + diagonal_elements.sum() < threshold_in:
-    filter = (np.sum(np.sum(transition_max, axis=0), axis=1)) > threshold_in
-    trans_flt_max = transition_max[filter,:,:][:,filter,:]
-  else:
-    #sum all removed rows and keep it in desired shape 
-    last_row = np.sum(transition_max[filter,:,:], axis = 0)[None,:,:]
-    
-
-    #add 'Other' sum to transition matrix
-    transition_max = np.vstack((np.hstack((transition_max, last_col)), np.hstack((last_row, diagonal_elements))))
-      # filter to find the remaining ones
-    filter = (np.sum(np.sum(transition_max, axis=0), axis=1)) > threshold_in
-
-    trans_flt_max = transition_max[filter,:,:][:,filter,:]
-
-#filter labels list accordingnly
-labels_long_flt_max = [item for (item, cond) in zip(labels_long_filtered, filter) if cond]
-labels_short_flt_max = [item for (item, cond) in zip(labels_short_filtered, filter) if cond]
-
-#check if Other has survived this time
-if trans_flt_max.shape[0] != len(labels_long_flt_max): #'Other' label transition has survived after summation
-  labels_long_flt_max.append('Other')
-  labels_short_flt_max.append('Other')
-```
-
 ## graph for filtered transitions and fixed nodes
 
 For the visualizing nodes, we wanted to divide the graph into two parts.
 A part for DH labels which are ordered based on their level.
 The other part would be all other labels.
-In the next cell, I separated the labels and also sorted them alphabetically.
+It will get done using function divide_labels_and_sort; then I used a function called generate_node_coordinates to map each node to the space and finally those mentioned functions are used inside plot_network to get plotted. If you want to see how those functions work, check them out here [ref to functions].
+
+I added a variable 'threshold' to omit the edges with low number of transitions. If any edge transition is lower than the 'threshold' the edge won't be shown in the graph. I also have removed the transitions from an edge to itself. It helped de-clutter the graph substantially. Besides, the transition from a node to itself means the conversation remained in a state for a longer time (which we did not care about).
+
+The graphs are saved as 'html' files in the current directory (you can find them under the names "non-esc_[method].html" and "esc_[method].html" here [ref to the folder on github]).
 
 ```{python}
-#sort the labels alphabetically and get old indices for both DH and non-DHs:
-#method 'all'
-mask = ['DH' in s for s in labels_short_flt_all]
-sorted_DH_all = sorted(((name, index) for index, name in 
-                         enumerate([item for (item, cond) in zip(labels_short_flt_all, mask) if cond]))
-                          , reverse=True)
-sorted_non_DH_all = sorted((name, index) for index, name in 
-                         enumerate([item for (item, cond) in zip(labels_short_flt_all, mask) if not cond]))
-
-#method 'min'
-mask = ['DH' in s for s in labels_short_flt_min]
-sorted_DH_min = sorted(((name, index) for index, name in 
-                         enumerate([item for (item, cond) in zip(labels_short_flt_min, mask) if cond]))
-                          , reverse=True)
-sorted_non_DH_min = sorted((name, index) for index, name in 
-                         enumerate([item for (item, cond) in zip(labels_short_flt_min, mask) if not cond]))
-
-#method 'max'
-mask = ['DH' in s for s in labels_short_flt_max]
-sorted_DH_max = sorted(((name, index) for index, name in 
-                         enumerate([item for (item, cond) in zip(labels_short_flt_max, mask) if cond]))
-                          , reverse=True)
-sorted_non_DH_max = sorted((name, index) for index, name in 
-                         enumerate([item for (item, cond) in zip(labels_short_flt_max, mask) if not cond]))
-
-```
-
-In the end, I built six (three, number of methods by two, escalated and non-escalated) graphs.
-The size of each node is proportional to the number of inward transitions.
-The width of each edge is proportional to the number of transition between the two nodes (except for the transitions to node 'end').
-I added a variable 'threshod' to omit the eadges with less number of transition.
-If any edge transition is lower than the 'threshod' the edge won't be shown in the graph.
-I also have removed the transitions from an edge to itself.
-It helped declutter the graph substantially.
-Besides, it meant that the conversation remained in a state for a longer time (which we did not care about).
-
-The graphs will be save as 'html' files in the current directory (after running next cell, open 'files' on the left menu bar; you should see two files with names "nonesc_fixed.html" and "esc_fixed.html"; the files are downloadable).
-First, let's look at the 'max' graphs:
-
-```{python}
-# create two empty directed Network instance, with certain size in pixels
-non_esc_net_max = Network(height='900px', width='900px',directed =True)
-esc_net_max = Network(height='900px', width='900px',directed =True)
-# a threshold for showing the frequency of transitions
-threshold = 12
-node_color = '#0000CC'
-esc_edge_color = '#FF9933'
-non_esc_edge_color = '#33FF33'
-
-#keep track of node index
-idx_node = 0
-# add nodes to network 
-#left column for DHs & right col for the rest
-# index is the sorted index in DH or non-DH (sorted_DH or sorted_non_DH)
-# idx is the index in the filtered label matrix (all the labels)
-# each node would be part of an ellipse for the visualization purposes
-# each group of nodes is part of a half ellipse (two different circles)
-
-
-# number of nodes in the left part of the ellipse; all DHs
-node_no_col = 7 #len(sorted_DH_max)
-# generate coordinates for all the nodes in the left part
-y = np.linspace(0,600,node_no_col)
-x = -np.sqrt(300**2 - ((y-300)**2)/1.1) - 50
-# add nodes from sorted_DH
-for node, _ in sorted_DH_max:
-  idx = labels_short_flt_max.index(node)
-
-  #check its frequency by summing the column
-  value = int(np.sum(trans_flt_max[:,idx,0]))
-  
-  non_esc_net_max.add_node(idx_node, label=node, value=value*10,
-               x= int(x[idx_node]), y=int(y[idx_node]),
-               color=node_color)
-               
-  value = int(np.sum(trans_flt_max[:,idx,1]))
-  
-  esc_net_max.add_node(idx_node, label=node, value=value*10,
-               x= int(x[idx_node]), y=int(y[idx_node]),
-               color=node_color)
-               
-  idx_node += 1
-
-# number of nodes in the left part of the circle
-node_no_col = len(sorted_non_DH_max)
-#positions of the nodes for the right part
-y = np.linspace(0,600,node_no_col)
-x = (np.sqrt(300**2 - ((y-300)**2)/1.1) + 50)
-
-#add non-DH nodes to the graph
-for node, _ in sorted_non_DH_max:
-  # idx of the node on labels_short list
-  idx = labels_short_flt_max.index(node)
-
-  #check its frequency by summing the column
-  value = int(np.sum(trans_flt_max[:,idx,0]))
-  # print(value)
-  non_esc_net_max.add_node(idx_node, label=node, value=value*10,
-               x= int(x[idx_node - len(sorted_DH_max)]),
-               y=int(y[idx_node - len(sorted_DH_max)]),
-               color=node_color)
-              
-  value = int(np.sum(trans_flt_all[:,idx,1]))
-  # print(value)
-  esc_net_max.add_node(idx_node, label=node, value=value*10,
-               x= int(x[idx_node - len(sorted_DH_max)]),
-               y=int(y[idx_node - len(sorted_DH_max)]),
-               color=node_color)
-             
-  idx_node += 1
-  
-
-
-
-# add edges from DHs to both
-idx_source = 0
-for source, _ in sorted_DH_max:
-  # idx of the node on labels_short list
-  idx = labels_short_flt_max.index(source)
-  # print(node, idx)
-
-
-  idx_target = 0
-  for target, _ in sorted_DH_max:
-    #remove transitions to the source itself
-    if target == source:
-      idx_target += 1
-      continue
-  # idx of the node on labels_short list
-    idx_t = labels_short_flt_max.index(target)
-    weight = int(trans_flt_max[idx,idx_t,0])
-    # weight = penfunc(trans_freq,5)
-    
-    if weight > threshold:
-      non_esc_net_max.add_edge(idx_source, idx_target, 
-                  weight=weight,
-                  value=weight,
-                  color=non_esc_edge_color)
-    weight = int(trans_flt_max[idx,idx_t,1])
-    # weight = penfunc(trans_freq,5)
-    
-    if weight > threshold:
-      esc_net_max.add_edge(idx_source, idx_target, 
-                  weight=weight,
-                  value=weight,
-                  color=esc_edge_color)      
-    
-      
-    idx_target += 1
-  for target, _ in sorted_non_DH_max:
-    #remove transitions to the source itself
-    if target == source:
-      idx_target += 1
-      continue    
-  # idx of the node on labels_short list
-    idx_t = labels_short_flt_max.index(target)
-    weight = int(trans_flt_max[idx,idx_t,0])
-    if target == 'end' and weight > 0:
-      weight = threshold + 1
-    if weight > threshold:
-      non_esc_net_max.add_edge(idx_source, idx_target, 
-                  weight=weight,
-                  value=weight,
-                  color=non_esc_edge_color)
-      
-    weight = int(trans_flt_max[idx,idx_t,1])
-    if target == 'end' and weight > 0:
-      weight = threshold + 1
-    if weight > threshold:
-      esc_net_max.add_edge(idx_source, idx_target, 
-                  weight=weight,
-                  value=weight,
-                  color=esc_edge_color)
-      
-    idx_target += 1
-  idx_source += 1
-# add edges from non_DHs to both
-for source, _ in sorted_non_DH_max:
-  # idx of the node on labels_short list
-  idx = labels_short_flt_max.index(source)
-
- 
-  idx_target = 0
-  for target, _ in sorted_DH_max:
-  
-  # idx of the node on labels_short list
-    idx_t = labels_short_flt_max.index(target)
-    weight = int(transition_all[idx,idx_t,0])
-    if weight > threshold:
-      non_esc_net_max.add_edge(idx_source, idx_target, 
-                  weight=weight,
-                  value=weight,
-                  color=non_esc_edge_color)
-      
-    weight = int(trans_flt_all[idx,idx_t,1])
-    if weight > threshold:
-      esc_net_max.add_edge(idx_source, idx_target, 
-                  weight=weight,
-                  value=weight,
-                  color=esc_edge_color)
-      
-    idx_target += 1
-  
-  for target, _ in sorted_non_DH_max:
-    #remove transitions to the source itself
-    if target == source:
-      idx_target += 1
-      continue   
-  # idx of the node on labels_short list
-    idx_t = labels_short_flt_max.index(target)
-    weight = int(trans_flt_max[idx,idx_t,0])
-    # weight = penfunc(trans_freq,5)
-    if target == 'end':
-      weight = threshold + 1
-    if weight > threshold:
-      non_esc_net_max.add_edge(idx_source, idx_target, 
-                  weight=weight,
-                  value=weight,
-                  color=non_esc_edge_color)
-    weight = int(trans_flt_max[idx,idx_t,1])
-    # weight = penfunc(trans_freq,5)
-    if target == 'end':
-      weight = threshold + 1
-    if weight > threshold:
-      esc_net_max.add_edge(idx_source, idx_target, 
-                  weight=weight,
-                  value=weight,
-                  color=esc_edge_color)
-      
-    idx_target += 1
-  idx_source += 1
-
-
-# toggle_physics method changes the position of nodes based on the strength
-# of the edges. Since we wanted to have the same positions for both graphs, this
-# option is off
-non_esc_net_max.toggle_physics(False)
-esc_net_max.toggle_physics(False)
-
-#create and save the graphs in current directory
-esc_net_max.save_graph("esc_fixed_max.html")
-non_esc_net_max.save_graph("nonesc_fixed_max.html")
-```
-
-
-
-```{python}
-# create two empty directed Network instance, with certain size in pixels
-non_esc_net_min = Network(height='900px', width='900px',directed =True)
-esc_net_min = Network(height='900px', width='900px',directed =True)
-# a threshold for showing the frequency of transitions
-threshold = 12
-node_color = '#0000CC'
-esc_edge_color = '#FF9933'
-non_esc_edge_color = '#33FF33'
-
-#keep track of node index
-idx_node = 0
-# add nodes to network 
-#left column for DHs & right col for the rest
-# index is the sorted index in DH or non-DH (sotrted_DH or sorted_non_DH)
-# idx is the index in the filtered label matrix (all the labels)
-# each node would be part of an ellipse for the visualization purposes
-# each group of nodes is part of a half ellipse (two different circles)
-
-
-# number of nodes in the left part of the ellipse; all DHs
-node_no_col = 7 #len(sorted_DH_min)
-# generate coordinates for all the nodes in the left part
-y = np.linspace(0,600,node_no_col)
-x = -np.sqrt(300**2 - ((y-300)**2)/1.1) - 50
-# add nodes from sorted_DH
-for node, _ in sorted_DH_min:
-  idx = labels_short_flt_min.index(node)
-
-  #check its frequency by summing the column
-  value = int(np.sum(trans_flt_min[:,idx,0]))
-  
-  non_esc_net_min.add_node(idx_node, label=node, value=value*10,
-               x= int(x[idx_node]), y=int(y[idx_node]),
-               color=node_color)
-               
-  value = int(np.sum(trans_flt_min[:,idx,1]))
-  
-  esc_net_min.add_node(idx_node, label=node, value=value*10,
-               x= int(x[idx_node]), y=int(y[idx_node]),
-               color=node_color)
-               
-  idx_node += 1
-
-# number of nodes in the left part of the circle
-node_no_col = len(sorted_non_DH_min)
-#positions of the nodes for the right part
-y = np.linspace(0,600,node_no_col)
-x = (np.sqrt(300**2 - ((y-300)**2)/1.1) + 50)
-
-#add non-DH nodes to the graph
-for node, _ in sorted_non_DH_min:
-  # idx of the node on labels_short list
-  idx = labels_short_flt_min.index(node)
-
-  #check its frequency by summing the column
-  value = int(np.sum(trans_flt_min[:,idx,0]))
-  # print(value)
-  non_esc_net_min.add_node(idx_node, label=node, value=value*10,
-               x= int(x[idx_node - len(sorted_DH_min)]),
-               y=int(y[idx_node - len(sorted_DH_min)]),
-               color=node_color)
-              
-  value = int(np.sum(trans_flt_all[:,idx,1]))
-  # print(value)
-  esc_net_min.add_node(idx_node, label=node, value=value*10,
-               x= int(x[idx_node - len(sorted_DH_min)]),
-               y=int(y[idx_node - len(sorted_DH_min)]),
-               color=node_color)
-             
-  idx_node += 1
-
-# add edges from DHs to both
-idx_source = 0
-for source, _ in sorted_DH_min:
-  # idx of the node on labels_short list
-  idx = labels_short_flt_min.index(source)
-  # print(node, idx)
-
-
-  idx_target = 0
-  for target, _ in sorted_DH_min:
-    #remove transitions to the source itself
-    if target == source:
-      idx_target += 1
-      continue
-  # idx of the node on labels_short list
-    idx_t = labels_short_flt_min.index(target)
-    weight = int(trans_flt_min[idx,idx_t,0])
-    # weight = penfunc(trans_freq,5)
-    
-    if weight > threshold:
-      non_esc_net_min.add_edge(idx_source, idx_target, 
-                  weight=weight,
-                  value=weight,
-                  color=non_esc_edge_color)
-    weight = int(trans_flt_min[idx,idx_t,1])
-    # weight = penfunc(trans_freq,5)
-    
-    if weight > threshold:
-      esc_net_min.add_edge(idx_source, idx_target, 
-                  weight=weight,
-                  value=weight,
-                  color=esc_edge_color)      
-    
-      
-    idx_target += 1
-  for target, _ in sorted_non_DH_min:
-    #remove transitions to the source itself
-    if target == source:
-      idx_target += 1
-      continue    
-  # idx of the node on labels_short list
-    idx_t = labels_short_flt_min.index(target)
-    weight = int(trans_flt_min[idx,idx_t,0])
-    if target == 'end' and weight > 0:
-      weight = threshold + 1
-    if weight > threshold:
-      non_esc_net_min.add_edge(idx_source, idx_target, 
-                  weight=weight,
-                  value=weight,
-                  color=non_esc_edge_color)
-      
-    weight = int(trans_flt_min[idx,idx_t,1])
-    if target == 'end' and weight > 0:
-      weight = threshold + 1
-    if weight > threshold:
-      esc_net_min.add_edge(idx_source, idx_target, 
-                  weight=weight,
-                  value=weight,
-                  color=esc_edge_color)
-      
-    idx_target += 1
-  idx_source += 1
-# add edges from non_DHs to both
-for source, _ in sorted_non_DH_min:
-  # idx of the node on labels_short list
-  idx = labels_short_flt_min.index(source)
-  # print(node, idx)
-
- 
-  idx_target = 0
-  for target, _ in sorted_DH_min:
-  
-  # idx of the node on labels_short list
-    idx_t = labels_short_flt_min.index(target)
-    weight = int(transition_all[idx,idx_t,0])
-    if weight > threshold:
-      non_esc_net_min.add_edge(idx_source, idx_target, 
-                  weight=weight,
-                  value=weight,
-                  color=non_esc_edge_color)
-      
-    weight = int(trans_flt_all[idx,idx_t,1])
-    if weight > threshold:
-      esc_net_min.add_edge(idx_source, idx_target, 
-                  weight=weight,
-                  value=weight,
-                  color=esc_edge_color)
-      
-    idx_target += 1
-  
-  for target, _ in sorted_non_DH_min:
-    #remove transitions to the source itself
-    if target == source:
-      idx_target += 1
-      continue   
-  # idx of the node on labels_short list
-    idx_t = labels_short_flt_min.index(target)
-    weight = int(trans_flt_min[idx,idx_t,0])
-    # weight = penfunc(trans_freq,5)
-    if target == 'end':
-      weight = threshold + 1
-    if weight > threshold:
-      non_esc_net_min.add_edge(idx_source, idx_target, 
-                  weight=weight,
-                  value=weight,
-                  color=non_esc_edge_color)
-    weight = int(trans_flt_min[idx,idx_t,1])
-    # weight = penfunc(trans_freq,5)
-    if target == 'end':
-      weight = threshold + 1
-    if weight > threshold:
-      esc_net_min.add_edge(idx_source, idx_target, 
-                  weight=weight,
-                  value=weight,
-                  color=esc_edge_color)
-      
-    idx_target += 1
-  idx_source += 1
-
-
-# toggle_physics method changes the position of nodes based on the strength
-# of the edges. Since we wanted to have the same positions for both graphs, this 
-# option is off
-non_esc_net_min.toggle_physics(False)
-esc_net_min.toggle_physics(False)
-
-#create and save the graphs in current directory
-non_esc_net_min.save_graph("nonesc_fixed_min.html")
-esc_net_min.save_graph("esc_fixed_min.html")
-```
-
-
-
-```{python}
-# create two empty directed Network instance, with certain size in pixels
-non_esc_net_all = Network(height='900px', width='900px',
-                          directed =True)
-esc_net_all = Network(height='900px', width='900px',directed =True)
-# a threshold for showing the frequency of transitions
-threshold = 12
-node_color = '#0000CC'
-esc_edge_color = '#FF9933'
-non_esc_edge_color = '#33FF33'
-
-#keep track of node index
-idx_node = 0
-# add nodes to network 
-#left column for DHs & right col for the rest
-# index is the sorted index in DH or non-DH (sotrted_DH or sorted_non_DH)
-# idx is the index in the filtered label matrix (all the labels)
-# each node would be part of an ellipse for the visualization purposes
-# each group of nodes is part of a half ellipse (two different circles)
-
-
-# number of nodes in the left part of the ellipse; all DHs
-node_no_col = 7 #len(sorted_DH_all)
-# generate coordinates for all the nodes in the left part
-y = np.linspace(0,600,node_no_col)
-x = -np.sqrt(300**2 - ((y-300)**2)/1.1) - 50
-# add nodes from sorted_DH
-for node, _ in sorted_DH_all:
-  idx = labels_short_flt_all.index(node)
-
-  #check its frequency by summing the column
-  value = int(np.sum(trans_flt_all[:,idx,0]))
-  
-  non_esc_net_all.add_node(idx_node, label=node, value=value*10,
-               x= int(x[idx_node]), y=int(y[idx_node]),
-               color=node_color)
-               
-  value = int(np.sum(trans_flt_all[:,idx,1]))
-  
-  esc_net_all.add_node(idx_node, label=node, value=value*10,
-               x= int(x[idx_node]), y=int(y[idx_node]),
-               color=node_color)
-               
-  idx_node += 1
-
-# number of nodes in the left part of the circle
-node_no_col = len(sorted_non_DH_all)
-#positions of the nodes for the right part
-y = np.linspace(0,600,node_no_col)
-x = (np.sqrt(300**2 - ((y-300)**2)/1.1) + 50)
-
-#add non-DH nodes to the graph
-for node, _ in sorted_non_DH_all:
-  # idx of the node on labels_short list
-  idx = labels_short_flt_all.index(node)
-
-  #check its frequency by summing the column
-  value = int(np.sum(trans_flt_all[:,idx,0]))
-  # print(value)
-  non_esc_net_all.add_node(idx_node, label=node, value=value*10,
-               x= int(x[idx_node - len(sorted_DH_all)]),
-               y=int(y[idx_node - len(sorted_DH_all)]),
-               color=node_color)
-              
-  value = int(np.sum(trans_flt_all[:,idx,1]))
-  # print(value)
-  esc_net_all.add_node(idx_node, label=node, value=value*10,
-               x= int(x[idx_node - len(sorted_DH_all)]),
-               y=int(y[idx_node - len(sorted_DH_all)]),
-               color=node_color)
-             
-  idx_node += 1
-  
-
-
-
-# add edges from DHs to both
-idx_source = 0
-for source, _ in sorted_DH_all:
-  # idx of the node on labels_short list
-  idx = labels_short_flt_all.index(source)
-  # print(node, idx)
-
-
-  idx_target = 0
-  for target, _ in sorted_DH_all:
-    #remove transitions to the source itself
-    if target == source:
-      idx_target += 1
-      continue
-  # idx of the node on labels_short list
-    idx_t = labels_short_flt_all.index(target)
-    weight = int(trans_flt_all[idx,idx_t,0])
-    # weight = penfunc(trans_freq,5)
-    
-    if weight > threshold:
-      non_esc_net_all.add_edge(idx_source, idx_target, 
-                  weight=weight,
-                  value=weight,
-                  color=non_esc_edge_color)
-    weight = int(trans_flt_all[idx,idx_t,1])
-    # weight = penfunc(trans_freq,5)
-    
-    if weight > threshold:
-      esc_net_all.add_edge(idx_source, idx_target, 
-                  weight=weight,
-                  value=weight,
-                  color=esc_edge_color)      
-    
-      
-    idx_target += 1
-  for target, _ in sorted_non_DH_all:
-    #remove transitions to the source itself
-    if target == source:
-      idx_target += 1
-      continue    
-  # idx of the node on labels_short list
-    idx_t = labels_short_flt_all.index(target)
-    weight = int(trans_flt_all[idx,idx_t,0])
-    if target == 'end' and weight > 0:
-      weight = threshold + 1
-    if weight > threshold:
-      non_esc_net_all.add_edge(idx_source, idx_target, 
-                  weight=weight,
-                  value=weight,
-                  color=non_esc_edge_color)
-      
-    weight = int(trans_flt_all[idx,idx_t,1])
-    if target == 'end' and weight > 0:
-      weight = threshold + 1
-    if weight > threshold:
-      esc_net_all.add_edge(idx_source, idx_target, 
-                  weight=weight,
-                  value=weight,
-                  color=esc_edge_color)
-      
-    idx_target += 1
-  idx_source += 1
-# add edges from non_DHs to both
-for source, _ in sorted_non_DH_all:
-  # idx of the node on labels_short list
-  idx = labels_short_flt_all.index(source)
-  # print(node, idx)
-
- 
-  idx_target = 0
-  for target, _ in sorted_DH_all:
-  
-  # idx of the node on labels_short list
-    idx_t = labels_short_flt_all.index(target)
-    weight = int(transition_all[idx,idx_t,0])
-    if weight > threshold:
-      non_esc_net_all.add_edge(idx_source, idx_target, 
-                  weight=weight,
-                  value=weight,
-                  color=non_esc_edge_color)
-      
-    weight = int(trans_flt_all[idx,idx_t,1])
-    if weight > threshold:
-      esc_net_all.add_edge(idx_source, idx_target, 
-                  weight=weight,
-                  value=weight,
-                  color=esc_edge_color)
-      
-    idx_target += 1
-  
-  for target, _ in sorted_non_DH_all:
-    #remove transitions to the source itself
-    if target == source:
-      idx_target += 1
-      continue   
-  # idx of the node on labels_short list
-    idx_t = labels_short_flt_all.index(target)
-    weight = int(trans_flt_all[idx,idx_t,0])
-    # weight = penfunc(trans_freq,5)
-    if target == 'end':
-      weight = threshold + 1
-    if weight > threshold:
-      non_esc_net_all.add_edge(idx_source, idx_target, 
-                  weight=weight,
-                  value=weight,
-                  color=non_esc_edge_color)
-    weight = int(trans_flt_all[idx,idx_t,1])
-    # weight = penfunc(trans_freq,5)
-    if target == 'end':
-      weight = threshold + 1
-    if weight > threshold:
-      esc_net_all.add_edge(idx_source, idx_target, 
-                  weight=weight,
-                  value=weight,
-                  color=esc_edge_color)
-      
-    idx_target += 1
-  idx_source += 1
-
-
-# toggle_physics method changes the position of nodes based on the strength
-# of the edges. Since we wanted to have the same positions for both graphs, this 
-# option is off
-non_esc_net_all.toggle_physics(False)
-esc_net_all.toggle_physics(False)
-
-#create and save the graphs in current directory
-non_esc_net_all.save_graph("nonesc_fixed_all.html")
-esc_net_all.save_graph("esc_fixed_all.html")
+for method in methods:
+  for c_type in conversation_type:
+    network = funcs.plot_network(transition_dict[method][c_type], c_type)
+    network.save_graph(c_type + "_" + method + ".html")
 ```
 # Results
 Since the output graphs are in html and I can only show one html file in this document, I have transformed them into png files.
 
 ```{r maxMethod, fig.align = 'center', out.width = "50%", fig.show='hold', fig.cap = "Max method; 'escalated' graph on the left, 'non-escalated' graph on the right"}
-knitr::include_graphics(c("esc_fixed_max.png", "nonesc_fixed_max.png"))
+knitr::include_graphics(c("esc_max.png", "non-esc_max.png"))
 ```
 
 Notice how both "escalated" and "non-escalated" conversations use many high-order arguments.
 Besides, "non-escalated" discussion are more associated with transitions between arguments and coordinating moves.
 
 Now let's look at the graphs with 'min' method to see if low-order arguments were more present in "escalated" conversations.
-Again, I transformed the html output into png format.
 
 ```{r minMethod, fig.align = 'center', out.width = "50%", fig.show='hold', fig.cap = "Min method; 'escalated' graph on the left, 'non-escalated' graph on the right"}
-knitr::include_graphics(c("esc_fixed_min.png", "nonesc_fixed_min.png"))
+knitr::include_graphics(c("esc_min.png", "non-esc_min.png"))
 ```
 
 It seems like lower order DHs were actually used more in "escalated" conversations.
@@ -1275,7 +427,7 @@ This means that although higher order DHs were used in "escalated" as much as "n
 
 Given both sets of graphs, we had the idea of giving all the labels equal opportunities to be seen; we built the graphs with "all" method.
 ```{r allMethod, fig.align = 'center', out.width = "50%", fig.show='hold', fig.cap = "All method; 'escalated' graph on the left, 'non-escalated' graph on the right"}
-knitr::include_graphics(c("esc_fixed_all.png", "nonesc_fixed_all.png"))
+knitr::include_graphics(c("esc_all.png", "non-esc_all.png"))
 ```
 
 Comparing the left and right parts of the graphs in "escalated" and "non-escalated" conversation, using "all" labels shows less transitions between the left part (rebuttal tactics) and right part (resolutional tactics) in the "escalated" graph.
@@ -1283,11 +435,11 @@ This means that although authors in escalated conversations used almost the same
 See [here](wiki_graph_cambridge.pdf) if you would like to see all the graphs side by side.
 They are also available in "html" format on the [project's repository](https://github.com/zahra-arjm/wikipedia_discussions/tree/main/docs).
 
-One sample to show how the graph look like in html format; you can zoom on the graph or move the nodes:
+One sample to show how the graph look like in "html" format; you can zoom on the graph or move the nodes:
 
 ````{=html}
 ```{r results='asis'}
-xfun::file_string('esc_fixed_all.html')
+xfun::file_string('esc_all.html')
 ```
 ````
 
