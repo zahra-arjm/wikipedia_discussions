@@ -13,6 +13,10 @@ editor_options:
   markdown: 
     wrap: sentence
 ---
+<style>
+body {
+text-align: justify}
+</style>
 
 This is a report of a mini-project for visualizing wikipedia conversations on summer 2022.
 The data was gathered by Christine De Kock and Andreas Vlachos.
