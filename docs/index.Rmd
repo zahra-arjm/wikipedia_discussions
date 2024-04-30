@@ -437,16 +437,9 @@ knitr::include_graphics(c("esc_all.png", "non-esc_all.png"))
 Comparing the left and right parts of the graphs in "escalated" and "non-escalated" conversation, using "all" labels shows less transitions between the left part (rebuttal tactics) and right part (resolutional tactics) in the "escalated" graph.
 This means that although authors in escalated conversations used almost the same level of reasoning to discuss their points of view, but it did not encourage using more resolutional arguments such as "Asking questions", "providing a clarification", or "suggesting a compromise".
 See [here](wiki_graph_cambridge.pdf) if you would like to see all the graphs side by side.
-They are also available in "html" format on the [project's repository](https://github.com/zahra-arjm/wikipedia_discussions/tree/main/docs).
+They are also available in "html" format on the [project's repository](https://github.com/zahra-arjm/wikipedia_discussions/tree/main/docs); you can zoom on the graph or move the nodes to get a better view.
 
 
-One sample to show how the graph look like in html format; you can zoom on the graph or move the nodes to get a better view:
-
-````{=html}
-```{r results='asis'}
-xfun::file_string('esc_all.html')
-```
-````
 
 # Acknowledgments
 
